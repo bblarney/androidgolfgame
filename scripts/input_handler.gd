@@ -67,9 +67,9 @@ func _release(screen_pos: Vector2) -> void:
 
 	var power       : float   = clampf(drag, 0.0, MAX_DRAG) / MAX_DRAG
 	var flat_dir    : Vector3 = _camera.get_aim_direction()
-	var launch_rad  : float   = deg_to_radf(44.0)
+	var launch_rad  : float   = deg_to_rad(44.0)
 	var spread_deg  : float   = EquipmentManager.get_equipped_club().get("spread", 8.0)
-	var spread_rad  : float   = deg_to_radf(randf_range(-spread_deg * 0.5, spread_deg * 0.5))
+	var spread_rad  : float   = deg_to_rad(randf_range(-spread_deg * 0.5, spread_deg * 0.5))
 
 	flat_dir = flat_dir.rotated(Vector3.UP, spread_rad)
 	var direction := Vector3(
