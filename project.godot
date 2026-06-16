@@ -1,0 +1,34 @@
+; Engine configuration file.
+; https://docs.godotengine.org/en/stable/tutorials/export/exporting_projects.html
+
+config_version=5
+
+[application]
+
+config/name="Birdie Blitz"
+config/run/main_scene="res://scenes/hole.tscn"
+config/features=PackedStringArray("4.6", "Mobile")
+
+[autoload]
+
+SaveManager="*res://autoloads/SaveManager.gd"
+EquipmentManager="*res://autoloads/EquipmentManager.gd"
+GameState="*res://autoloads/GameState.gd"
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/mode=0
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
+window/handheld/orientation=1
+
+[physics]
+
+2d/default_gravity=980.0
+
+[rendering]
+
+renderer/rendering_method="mobile"
+environment/defaults/default_clear_color=Color(0.18, 0.55, 0.78, 1)

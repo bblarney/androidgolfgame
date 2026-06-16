@@ -1,0 +1,50 @@
+{
+  "ball_default": {
+    "id": "ball_default",
+    "name": "Starter Ball",
+    "rarity": "common",
+    "distance_modifier": 1.0,
+    "air_resistance": 0.08,
+    "roll_resistance": 1.2
+  },
+  "ball_range": {
+    "id": "ball_range",
+    "name": "Range Ball",
+    "rarity": "common",
+    "distance_modifier": 0.82,
+    "air_resistance": 0.12,
+    "roll_resistance": 1.5
+  },
+  "ball_longrange": {
+    "id": "ball_longrange",
+    "name": "Long Range Ball",
+    "rarity": "uncommon",
+    "distance_modifier": 1.22,
+    "air_resistance": 0.05,
+    "roll_resistance": 1.1
+  },
+  "ball_control": {
+    "id": "ball_control",
+    "name": "Control Ball",
+    "rarity": "uncommon",
+    "distance_modifier": 0.92,
+    "air_resistance": 0.09,
+    "roll_resistance": 0.75
+  },
+  "ball_rocket": {
+    "id": "ball_rocket",
+    "name": "Rocket Ball",
+    "rarity": "rare",
+    "distance_modifier": 1.42,
+    "air_resistance": 0.03,
+    "roll_resistance": 1.0
+  },
+  "ball_mythic": {
+    "id": "ball_mythic",
+    "name": "Mythic Ball",
+    "rarity": "legendary",
+    "distance_modifier": 1.6,
+    "air_resistance": 0.02,
+    "roll_resistance": 0.6
+  }
+}

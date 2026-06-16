@@ -1,0 +1,17 @@
+{
+  "bronze": {
+    "common":   { "weight": 70, "pool": ["driver_default", "wood_3", "iron_default", "ball_range"] },
+    "uncommon": { "weight": 25, "pool": ["iron_precision", "wedge_lob", "ball_longrange", "ball_control"] },
+    "rare":     { "weight": 5,  "pool": ["driver_eagle", "ball_rocket"] }
+  },
+  "silver": {
+    "uncommon":  { "weight": 55, "pool": ["iron_precision", "wedge_lob", "ball_longrange", "ball_control"] },
+    "rare":      { "weight": 35, "pool": ["driver_eagle", "ball_rocket"] },
+    "legendary": { "weight": 10, "pool": ["driver_legend", "ball_mythic"] }
+  },
+  "gold": {
+    "rare":      { "weight": 50, "pool": ["driver_eagle", "ball_rocket"] },
+    "legendary": { "weight": 40, "pool": ["driver_legend", "ball_mythic"] },
+    "mythic":    { "weight": 10, "pool": ["driver_zeus", "ball_singularity"] }
+  }
+}
