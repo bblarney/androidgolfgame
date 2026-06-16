@@ -1,0 +1,4 @@
+.godot/
+*.uid
+android/
+export_presets.cfg
