@@ -23,7 +23,7 @@ golf_game/
 ├── scripts/
 │   ├── ball.gd
 │   ├── club.gd
-│   ├── course.gd
+│   ├── hole_generator.gd  # procedural hole generation
 │   ├── hole_manager.gd
 │   ├── input_handler.gd
 │   ├── camera_controller.gd
@@ -34,7 +34,6 @@ golf_game/
 ├── data/
 │   ├── clubs.json         # club stat definitions
 │   ├── balls.json         # ball stat definitions
-│   ├── courses.json       # hole layout definitions
 │   └── loot_tables.json   # mystery box rarity weights
 └── autoloads/             # global singletons
     ├── GameState.gd       # current session data
@@ -199,39 +198,148 @@ Ball stats modify physics, not input:
 
 ---
 
-## 5. Course / Hole Design
+## 5. Procedural Hole Generation
 
-Courses are defined in `courses.json` — each hole is a list of polygons with surface types, plus tee/flag/cup positions:
+Every hole is unique — generated at runtime from a seed. No two rounds are the same. No `courses.json`.
 
-```json
-{
-  "course_1": {
-    "name": "Pinebrook",
-    "holes": [
-      {
-        "hole_number": 1,
-        "par": 4,
-        "tee_position": [100, 800],
-        "cup_position": [1800, 200],
-        "terrain": [
-          {"type": "fairway", "polygon": [[0,600],[2000,600],[2000,900],[0,900]]},
-          {"type": "rough",   "polygon": [[0,400],[2000,400],[2000,600],[0,600]]},
-          {"type": "water",   "polygon": [[900,650],[1100,650],[1100,750],[900,750]]}
-        ],
-        "camera_bounds": [0, 0, 2000, 1000]
-      }
-    ]
-  }
-}
+### Seed System
+
+```gdscript
+# Each hole gets a seed derived from: round_seed + hole_number
+# Reproducible: same seed always produces same hole (useful for daily challenge later)
+var round_seed: int = randi()
+var hole_seed: int = round_seed + hole_number
 ```
 
-Holes are loaded and instantiated at runtime from this data — no separate scene per hole.
+The round seed is stored in the save file so the current round survives app close/reopen.
 
-**Hazard handling:**
-- **Water:** `Area2D` body_entered → add penalty stroke, reset ball to last safe position
-- **OOB:** Same as water
-- **Sand:** No penalty, just high friction PhysicsMaterial
-- **Cup:** `Area2D` body_entered → trigger hole complete if ball velocity < threshold
+### Generation Pipeline (`hole_generator.gd`)
+
+```
+generate_hole(seed) →
+  1. seed_rng(seed)
+  2. roll_hole_type()       → shape template (straight / dogleg-left / dogleg-right / S-curve)
+  3. generate_spine()       → list of waypoints from tee to green
+  4. build_fairway()        → polygon corridor around spine, variable width
+  5. build_rough()          → wider polygon border around fairway
+  6. place_hazards()        → water/sand scattered along spine, never fully blocking
+  7. place_green()          → circular smooth-friction zone around cup
+  8. calculate_par()        → based on spine length + hazard count
+  9. spawn_terrain_nodes()  → instantiate all StaticBody2D / Area2D nodes into the scene
+```
+
+### Spine Generation
+
+The spine is a list of 3–6 Vector2 waypoints from tee to cup. Each shape template constrains how waypoints are placed:
+
+| Template | Waypoints | Description |
+|----------|-----------|-------------|
+| Straight | 3 | Tee → mid offset → cup, slight curve |
+| Dogleg-left | 4 | Sharp left bend at ~40% length |
+| Dogleg-right | 4 | Sharp right bend at ~40% length |
+| S-curve | 5–6 | Two opposing bends, longer holes |
+
+```gdscript
+func generate_spine(template: String) -> Array[Vector2]:
+    var points: Array[Vector2] = []
+    var tee = Vector2(150, rng.randf_range(400, 600))
+    points.append(tee)
+
+    match template:
+        "straight":
+            points.append(tee + Vector2(rng.randf_range(600, 900), rng.randf_range(-200, 200)))
+        "dogleg_left":
+            var elbow = tee + Vector2(rng.randf_range(400, 600), rng.randf_range(-100, 100))
+            points.append(elbow)
+            points.append(elbow + Vector2(rng.randf_range(300, 500), rng.randf_range(-300, -150)))
+        "dogleg_right":
+            var elbow = tee + Vector2(rng.randf_range(400, 600), rng.randf_range(-100, 100))
+            points.append(elbow)
+            points.append(elbow + Vector2(rng.randf_range(300, 500), rng.randf_range(150, 300)))
+        "s_curve":
+            # two elbows in opposing directions
+            ...
+
+    points.append(points[-1] + Vector2(rng.randf_range(100, 200), 0))  # cup at end
+    return points
+```
+
+### Fairway Construction
+
+Walk each spine segment and extrude left/right by a variable half-width to build a polygon:
+
+```gdscript
+func build_fairway(spine: Array[Vector2]) -> PackedVector2Array:
+    var left_edge: Array[Vector2] = []
+    var right_edge: Array[Vector2] = []
+
+    for i in range(spine.size() - 1):
+        var segment = spine[i + 1] - spine[i]
+        var normal = Vector2(-segment.y, segment.x).normalized()
+        var width = rng.randf_range(120, 220)   # narrow or wide fairway
+        left_edge.append(spine[i] + normal * width)
+        right_edge.append(spine[i] - normal * width)
+
+    # combine left + reversed right → closed polygon
+    var polygon = PackedVector2Array(left_edge + right_edge.reverse())
+    return polygon
+```
+
+Rough is built identically with a larger width multiplier (1.8×) layered behind fairway.
+
+### Hazard Placement
+
+Hazards are placed at random points along the spine at 30–75% of the total length (never near tee or cup):
+
+```gdscript
+func place_hazards(spine: Array[Vector2]) -> Array[Dictionary]:
+    var hazards = []
+    var num_water = rng.randi_range(0, 2)
+    var num_sand  = rng.randi_range(0, 3)
+
+    for i in range(num_water):
+        var t = rng.randf_range(0.3, 0.75)        # position along spine
+        var pos = spine_interpolate(spine, t)
+        var offset = rng.randf_range(60, 130)      # how far off-center
+        var side = 1 if rng.randf() > 0.5 else -1
+        hazards.append({ "type": "water", "position": pos + perpendicular(spine, t) * side * offset, "radius": rng.randf_range(60, 120) })
+
+    for i in range(num_sand):
+        # same logic, smaller radius, can be on fairway edge
+        ...
+
+    return hazards
+```
+
+Hazards are circular `Area2D` nodes. Water triggers penalty + reset; sand is a `StaticBody2D` with high-friction PhysicsMaterial.
+
+### Par Calculation
+
+```gdscript
+func calculate_par(spine: Array[Vector2], hazard_count: int) -> int:
+    var length = spine_total_length(spine)
+    var base_par = 3 if length < 700 else (4 if length < 1200 else 5)
+    # hazards don't change par — they just make it harder to achieve
+    return base_par
+```
+
+### Hazard Handling
+
+- **Water / OOB:** `Area2D.body_entered` → +1 penalty stroke, ball resets to last recorded safe position (updated every 0.5s while ball is on fairway/rough/green)
+- **Sand:** No penalty, PhysicsMaterial with friction = 1.5, bounce = 0.05
+- **Cup:** `Area2D.body_entered` → hole complete only if `ball.linear_velocity.length() < 80`
+
+### What Changes Each Hole
+
+| Element | Randomized |
+|---------|-----------|
+| Hole shape | Straight / dogleg-left / dogleg-right / S-curve |
+| Fairway width | 120–220px (narrow to wide) |
+| Fairway path curve | Spine waypoint offsets |
+| Water hazards | 0–2, random position + size |
+| Sand bunkers | 0–3, random position + size |
+| Par | 3 / 4 / 5 based on generated length |
+| Total length | ~500–1500px |
 
 ---
 
@@ -341,7 +449,8 @@ Single JSON file at `user://save.json`:
     "eagles": 2,
     "birdies": 18
   },
-  "completed_courses": ["course_1"]
+  "current_round_seed": 849201748,
+  "current_hole": 4
 }
 ```
 
@@ -367,7 +476,7 @@ Single JSON file at `user://save.json`:
 | 2 | One hardcoded hole, camera, cup detection | Playable loop |
 | 3 | Scorecard + points calculation | Feedback/reward |
 | 4 | Club/ball stat system + equipment switching | Differentiation |
-| 5 | JSON-driven course loader + 9 holes | Content |
+| 5 | Procedural hole generator | Infinite unique content |
 | 6 | Save system | Persistence |
 | 7 | Mystery box + shop UI | Progression loop |
 | 8 | Main menu + course select UI | Polish |
