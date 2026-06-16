@@ -4,9 +4,9 @@ signal shot_taken(direction: Vector2, power: float)
 signal aim_updated(ball_pos: Vector2, direction: Vector2, power: float)
 signal aim_cancelled
 
-const MAX_DRAG := 210.0
-const MIN_DRAG := 14.0
-const BALL_TOUCH_RADIUS := 60.0
+const MAX_DRAG: float = 210.0
+const MIN_DRAG: float = 14.0
+const BALL_TOUCH_RADIUS: float = 60.0
 
 var can_shoot := false
 var _is_dragging := false
@@ -41,7 +41,7 @@ func _update_drag(screen_pos: Vector2) -> void:
 	var raw_len := drag_vec.length()
 	if raw_len < MIN_DRAG:
 		return
-	var power := clamp(raw_len, 0.0, MAX_DRAG) / MAX_DRAG
+	var power: float = clamp(raw_len, 0.0, MAX_DRAG) / MAX_DRAG
 	var direction := drag_vec.normalized()
 	aim_updated.emit(_ball.global_position, direction, power)
 
@@ -51,7 +51,7 @@ func _release(screen_pos: Vector2) -> void:
 		aim_cancelled.emit()
 		return
 
-	var power := clamp(drag_vec.length(), 0.0, MAX_DRAG) / MAX_DRAG
+	var power: float = clamp(drag_vec.length(), 0.0, MAX_DRAG) / MAX_DRAG
 	var direction := drag_vec.normalized()
 
 	var spread_deg: float = EquipmentManager.get_equipped_club().get("spread", 8.0)

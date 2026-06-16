@@ -30,7 +30,7 @@ func _connect_signals() -> void:
 	cup.body_entered.connect(_on_cup_entered)
 	input_handler.shot_taken.connect(_on_shot_taken)
 	input_handler.aim_updated.connect(aim_indicator.show_aim)
-	input_handler.aim_cancelled.connect(aim_indicator.hide)
+	input_handler.aim_cancelled.connect(aim_indicator.clear_aim)
 
 func _start_hole() -> void:
 	# Clear previous terrain
@@ -68,7 +68,7 @@ func _start_hole() -> void:
 	input_handler.can_shoot = true
 
 func _on_shot_taken(direction: Vector2, power: float) -> void:
-	aim_indicator.hide()
+	aim_indicator.clear_aim()
 	stroke_count += 1
 	_update_hud()
 	var club := EquipmentManager.get_equipped_club()
@@ -107,7 +107,7 @@ func _on_cup_entered(body: Node) -> void:
 		return
 	is_active = false
 	input_handler.can_shoot = false
-	aim_indicator.hide()
+	aim_indicator.clear_aim()
 
 	var points := SaveManager.record_hole_complete(stroke_count, par)
 	GameState.record_hole(stroke_count, par)
