@@ -1,36 +1,45 @@
-extends Node2D
+extends Control
 
-const DOT_COUNT: int = 14
-const DOT_RADIUS_MIN: float = 4.0
-const DOT_RADIUS_MAX: float = 8.0
+const BAR_W  : float = 38.0
+const BAR_H  : float = 210.0
+const BAR_X  : float = 32.0
 
-var _ball_pos: Vector2 = Vector2.ZERO
-var _direction: Vector2 = Vector2.ZERO
-var _power: float = 0.0
+var _power   : float = 0.0
+var _showing : bool  = false
 
-func show_aim(ball_pos: Vector2, direction: Vector2, power: float) -> void:
-	_ball_pos = ball_pos
-	_direction = direction
-	_power = power
-	visible = true
+func show_aim(power: float) -> void:
+	_power   = power
+	_showing = true
 	queue_redraw()
 
 func clear_aim() -> void:
-	visible = false
+	_showing = false
+	queue_redraw()
 
 func _draw() -> void:
-	if _power < 0.05:
+	if not _showing:
 		return
 
-	var max_length: float = _power * 380.0
-	var step: float = max_length / float(DOT_COUNT)
+	var sz  := get_size()
+	var by  : float = (sz.y - BAR_H) * 0.5
 
-	for i in range(DOT_COUNT):
-		var t: float = float(i) / float(DOT_COUNT)
-		var pos: Vector2 = _ball_pos + _direction * (float(i) * step + step * 0.5)
-		var alpha: float = 1.0 - t * 0.6
-		var radius: float = lerp(DOT_RADIUS_MIN, DOT_RADIUS_MAX, 1.0 - t)
-		draw_circle(pos, radius, Color(1.0, 0.92, 0.1, alpha))
+	# Background
+	draw_rect(Rect2(BAR_X, by, BAR_W, BAR_H), Color(0.08, 0.08, 0.08, 0.75), true)
 
-	var arc_radius: float = 30.0 + _power * 20.0
-	draw_arc(_ball_pos, arc_radius, 0.0, TAU, 32, Color(1.0, 0.5, 0.1, 0.55), 3.0)
+	# Power fill — bottom-up
+	if _power > 0.01:
+		var fill  : float = BAR_H * _power
+		var t     : float = _power
+		var col   := Color(lerpf(0.1, 1.0, t), lerpf(0.9, 0.1, t), 0.08)
+		draw_rect(Rect2(BAR_X, by + BAR_H - fill, BAR_W, fill), col, true)
+
+	# Border
+	draw_rect(Rect2(BAR_X, by, BAR_W, BAR_H), Color(0.85, 0.85, 0.85, 0.55), false, 2.0)
+
+	# Label
+	var font  := ThemeDB.fallback_font
+	var pct   : int = int(_power * 100.0)
+	draw_string(font, Vector2(BAR_X + BAR_W * 0.5 - 14.0, by - 12.0),
+		"%d%%" % pct, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color.WHITE)
+	draw_string(font, Vector2(BAR_X - 4.0, by + BAR_H + 24.0),
+		"PULL", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1.0, 1.0, 1.0, 0.7))

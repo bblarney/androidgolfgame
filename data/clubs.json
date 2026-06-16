@@ -3,7 +3,7 @@
     "id": "driver_default",
     "name": "Starter Driver",
     "rarity": "common",
-    "power": 1800.0,
+    "power": 40.0,
     "spread": 12.0,
     "spin": 0.1,
     "description": "Reliable off the tee."
@@ -12,7 +12,7 @@
     "id": "wood_3",
     "name": "3-Wood",
     "rarity": "common",
-    "power": 1520.0,
+    "power": 34.0,
     "spread": 9.0,
     "spin": 0.15,
     "description": "Great distance from the fairway."
@@ -21,7 +21,7 @@
     "id": "iron_default",
     "name": "Starter Iron",
     "rarity": "common",
-    "power": 1150.0,
+    "power": 26.0,
     "spread": 5.0,
     "spin": 0.3,
     "description": "Precise approach shots."
@@ -30,7 +30,7 @@
     "id": "wedge_default",
     "name": "Pitching Wedge",
     "rarity": "common",
-    "power": 780.0,
+    "power": 17.0,
     "spread": 3.0,
     "spin": 0.6,
     "description": "High arc, short distance."
@@ -39,7 +39,7 @@
     "id": "putter_default",
     "name": "Starter Putter",
     "rarity": "common",
-    "power": 340.0,
+    "power": 7.5,
     "spread": 0.5,
     "spin": 0.0,
     "description": "For the green only."
@@ -48,7 +48,7 @@
     "id": "driver_eagle",
     "name": "Eagle Driver",
     "rarity": "rare",
-    "power": 2150.0,
+    "power": 48.0,
     "spread": 8.0,
     "spin": 0.2,
     "description": "More power, still accurate."
@@ -57,7 +57,7 @@
     "id": "iron_precision",
     "name": "Precision Iron",
     "rarity": "uncommon",
-    "power": 1200.0,
+    "power": 27.0,
     "spread": 2.0,
     "spin": 0.45,
     "description": "Surgical accuracy on approach."
@@ -66,7 +66,7 @@
     "id": "driver_legend",
     "name": "Legend Driver",
     "rarity": "legendary",
-    "power": 2500.0,
+    "power": 56.0,
     "spread": 6.0,
     "spin": 0.25,
     "description": "Forged in greatness."
@@ -75,7 +75,7 @@
     "id": "wedge_lob",
     "name": "Lob Wedge",
     "rarity": "uncommon",
-    "power": 680.0,
+    "power": 15.0,
     "spread": 2.0,
     "spin": 0.8,
     "description": "Near-vertical launch. Stops on a dime."
