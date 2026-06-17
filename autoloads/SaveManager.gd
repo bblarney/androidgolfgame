@@ -16,6 +16,20 @@ func load_save() -> void:
 	var parsed = JSON.parse_string(file.get_as_text())
 	file.close()
 	data = parsed if parsed is Dictionary else _default_save()
+	_ensure_starter_items()
+
+func _ensure_starter_items() -> void:
+	# Backfills clubs added after a save was already created, so existing
+	# saves don't get silently locked out of new starter equipment.
+	var inv     : Array = data.get("inventory", [])
+	var changed : bool  = false
+	for id: String in ["driver_default", "iron_default", "wedge_default", "putter_default", "ball_default"]:
+		if not id in inv:
+			inv.append(id)
+			changed = true
+	if changed:
+		data["inventory"] = inv
+		save()
 
 func save() -> void:
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -86,7 +100,7 @@ func _default_save() -> Dictionary:
 			"club": "driver_default",
 			"ball": "ball_default"
 		},
-		"inventory": ["driver_default", "ball_default"],
+		"inventory": ["driver_default", "iron_default", "wedge_default", "putter_default", "ball_default"],
 		"stats": {
 			"rounds_played": 0,
 			"holes_completed": 0,

@@ -50,7 +50,7 @@ func _load_json(path: String) -> Dictionary:
 	return result if result is Dictionary else {}
 
 func _fallback_club() -> Dictionary:
-	return {"id": "driver_default", "name": "Driver", "power": 1500.0, "spread": 10.0, "spin": 0.1}
+	return {"id": "driver_default", "name": "Driver", "power": 85.0, "spread": 10.0, "spin": 0.1, "launch_angle": 20.0, "backspin": 0.0}
 
 func _fallback_ball() -> Dictionary:
 	return {"id": "ball_default", "name": "Ball", "distance_modifier": 1.0, "air_resistance": 0.08, "roll_resistance": 1.2}

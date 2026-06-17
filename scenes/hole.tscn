@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/hole_manager.gd" id="1_manager"]
 [ext_resource type="Script" path="res://scripts/ball.gd" id="2_ball"]
@@ -6,26 +6,31 @@
 [ext_resource type="Script" path="res://scripts/camera_controller.gd" id="4_cam"]
 [ext_resource type="Script" path="res://scripts/hole_generator.gd" id="5_gen"]
 [ext_resource type="Script" path="res://scripts/aim_indicator.gd" id="6_aim"]
+[ext_resource type="Script" path="res://scripts/scorecard.gd" id="7_scorecard"]
+[ext_resource type="Script" path="res://scripts/club_selector.gd" id="8_clubsel"]
 
 [sub_resource type="SphereShape3D" id="1_bshape"]
-radius = 0.35
+radius = 0.117
 
 [sub_resource type="CylinderShape3D" id="2_cshape"]
-height = 0.6
-radius = 0.65
+height = 0.7
+radius = 0.85
 
 [sub_resource type="SphereMesh" id="3_bmesh"]
-radius = 0.35
-height = 0.70
+radius = 0.117
+height = 0.234
 
 [sub_resource type="StandardMaterial3D" id="4_bmat"]
-albedo_color = Color(1, 1, 1, 1)
+albedo_color = Color(1.0, 0.32, 0.0, 1)
 roughness = 0.25
 metallic_specular = 0.4
+emission_enabled = true
+emission = Color(1.0, 0.32, 0.0, 1)
+emission_energy_multiplier = 1.8
 
 [sub_resource type="PhysicsMaterial" id="5_phys"]
-friction = 0.6
-bounce = 0.35
+friction = 0.8
+bounce = 0.0
 
 [node name="Hole" type="Node3D"]
 
@@ -51,6 +56,8 @@ physics_material_override = SubResource("5_phys")
 gravity_scale = 1.5
 linear_damp = 0.5
 can_sleep = false
+continuous_cd = true
+inertia = Vector3(0.0218, 0.0218, 0.0218)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Ball"]
 shape = SubResource("1_bshape")
@@ -60,7 +67,7 @@ mesh = SubResource("3_bmesh")
 surface_material_override/0 = SubResource("4_bmat")
 
 [node name="GroundRay" type="RayCast3D" parent="Ball"]
-target_position = Vector3(0.0, -0.42, 0.0)
+target_position = Vector3(0.0, -0.15, 0.0)
 enabled = true
 exclude_parent = true
 
@@ -113,3 +120,94 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 script = ExtResource("6_aim")
+
+[node name="ClubBar" type="HBoxContainer" parent="HUD"]
+layout_mode = 3
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -236.0
+offset_top = -90.0
+offset_right = 236.0
+offset_bottom = -20.0
+theme_override_constants/separation = 12
+script = ExtResource("8_clubsel")
+
+[node name="ScoreCard" type="Control" parent="HUD"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 1
+script = ExtResource("7_scorecard")
+
+[node name="Dim" type="ColorRect" parent="HUD/ScoreCard"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.0, 0.0, 0.0, 0.55)
+
+[node name="Panel" type="Panel" parent="HUD/ScoreCard"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_top = -230.0
+offset_right = 260.0
+offset_bottom = 230.0
+
+[node name="VBox" type="VBoxContainer" parent="HUD/ScoreCard/Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = 24.0
+offset_right = -24.0
+offset_bottom = -24.0
+theme_override_constants/separation = 14
+alignment = 1
+
+[node name="HoleLabel" type="Label" parent="HUD/ScoreCard/Panel/VBox"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 36
+text = "Hole 1 Complete"
+
+[node name="StrokesLabel" type="Label" parent="HUD/ScoreCard/Panel/VBox"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 30
+text = "Strokes: 0"
+
+[node name="ParLabel" type="Label" parent="HUD/ScoreCard/Panel/VBox"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 26
+text = "Par 4"
+
+[node name="ResultLabel" type="Label" parent="HUD/ScoreCard/Panel/VBox"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 22
+autowrap_mode = 2
+text = ""
+
+[node name="PointsLabel" type="Label" parent="HUD/ScoreCard/Panel/VBox"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 26
+text = "+0 pts"
+
+[node name="NextButton" type="Button" parent="HUD/ScoreCard/Panel/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0.0, 64.0)
+theme_override_font_sizes/font_size = 28
+text = "Next Hole"

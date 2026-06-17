@@ -19,6 +19,34 @@ func new_round() -> void:
 func get_hole_seed() -> int:
 	return current_round_seed + current_hole
 
+# The biome (visual theme) for the current hole. Built deterministically from the round
+# seed so it is stable across saves/replays, and laid out for GUARANTEED variety: the
+# three biomes are shuffled and repeated to fill the round, reshuffling each cycle and
+# avoiding a repeat across the seam, so every round shows all three and consecutive holes
+# differ. The generator stays a pure function of (seed, biome) -- this round-spanning
+# logic lives here, where the round seed and hole index do.
+func get_hole_biome() -> String:
+	const BIOMES := ["parkland", "links", "fescue"]
+	var brng := RandomNumberGenerator.new()
+	brng.seed = current_round_seed
+	var order: Array[String] = []
+	var prev := ""
+	while order.size() < HOLES_PER_ROUND:
+		var cycle := BIOMES.duplicate()
+		# Fisher-Yates shuffle with the seeded RNG (Array.shuffle uses the global RNG).
+		for i in range(cycle.size() - 1, 0, -1):
+			var j := brng.randi_range(0, i)
+			var tmp = cycle[i]
+			cycle[i] = cycle[j]
+			cycle[j] = tmp
+		# Avoid the same biome straddling the cycle boundary.
+		if cycle[0] == prev and cycle.size() > 1:
+			cycle.append(cycle.pop_front())
+		for b in cycle:
+			order.append(b)
+		prev = order[order.size() - 1]
+	return order[(current_hole - 1) % order.size()]
+
 func record_hole(strokes: int, par: int) -> void:
 	hole_scores.append(strokes)
 	hole_pars.append(par)

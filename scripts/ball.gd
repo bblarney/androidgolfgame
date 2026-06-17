@@ -5,14 +5,65 @@ signal entered_hazard
 
 @onready var ground_ray: RayCast3D = $GroundRay
 
-const BALL_RADIUS      : float = 0.35
+const BALL_RADIUS      : float = 0.117
 const RESTING_SPEED    : float = 0.35
+# Derived from v = ω·r (rolling without slipping) so this stays correct if BALL_RADIUS
+# ever changes again -- a fixed constant here previously broke when the ball shrank.
+const RESTING_ANGULAR  : float = (RESTING_SPEED / BALL_RADIUS) * 1.2
 const RESTING_TIME     : float = 0.45
 const SAFE_POS_INTERVAL: float = 0.5
 
+# Shot-end watchdog. The ball is force-settled only when it has been BARELY moving for a
+# while (creeping/jittering with nowhere to go) -- a genuine long roll is never cut off.
+# HARD_CAP is a generous absolute backstop so a shot always terminates eventually.
+const STUCK_SPEED      : float = 0.9
+const STUCK_TIME       : float = 2.5
+const HARD_CAP         : float = 30.0
+
+# roll_resistance from balls.json is calibrated around this baseline (the starter
+# ball's value) -- it scales the surface damp below rather than replacing it, so
+# rarer low-resistance balls still roll noticeably farther on every surface.
+const BASE_ROLL_RESISTANCE : float = 2.8
+
+# Per-surface response. `bounce` is the normal-velocity restitution applied on landing
+# (a controlled reflection about the smooth terrain normal -- see _physics_process);
+# `linear`/`angular` are the rolling-friction damps once the ball is on the ground.
+# Firmness governs both: fairway is firm so it bounces and runs, the green is receptive
+# so it bounces low and checks, rough grabs and deadens, sand plugs almost completely.
+const SURFACE : Dictionary = {
+	"green":   {"bounce": 0.30, "linear": 0.22, "angular": 0.40},
+	"fairway": {"bounce": 0.52, "linear": 0.55, "angular": 1.0},
+	"rough":   {"bounce": 0.20, "linear": 1.8,  "angular": 3.0},
+	"sand":    {"bounce": 0.04, "linear": 9.0,  "angular": 14.0},
+}
+
+# "Bounce depends on height of flight": a ball that flew high comes down fast, and turf
+# absorbs proportionally more of a hard impact, so high shots sit while low skipping
+# shots keep their bounce. Normal restitution is scaled down by impact speed and clamped
+# so even a screamer keeps some life.
+const REST_SPEED_FALLOFF : float = 0.012   # restitution lost per m/s of impact speed
+const REST_MIN_SCALE     : float = 0.5
+
+# A landing only counts as a bounce when the ball is moving into the surface faster than
+# this; below it the ball is treated as rolling (no reflection) so it settles cleanly.
+const BOUNCE_ARM_SPEED   : float = 0.8
+
+# Fraction of tangential (sideways/forward) speed kept through a bounce -- the rest is
+# scrubbed off as friction on contact.
+const TANGENTIAL_KEEP    : float = 0.72
+
+# How close (vertically) the ball centre must be to the smooth surface to count as in
+# contact, and how near the cup we hand the ball back to the engine so it can fall in.
+const CONTACT_EPS        : float = 0.06
+const CUP_SKIP_R         : float = 1.6
+
 var is_grounded  := false
 var is_resting   := false
+var in_sand      : bool    = false
 var last_safe_position := Vector3.ZERO
+# Where the current shot was struck from -- a ball that finds water is replayed
+# from here (stroke + distance), not from the rolling last_safe_position.
+var shot_start_position := Vector3.ZERO
 
 var distance_modifier : float = 1.0
 var air_resistance    : float = 0.05
@@ -20,20 +71,97 @@ var roll_resistance   : float = 2.8
 
 var _resting_timer : float = 0.0
 var _safe_timer    : float = 0.0
+var _flight_timer  : float = 0.0
+var _stuck_timer   : float = 0.0
 var _in_flight     : bool  = false
+var _was_contact   : bool  = false
+var _prev_vn       : float = 0.0   # normal-velocity last frame (catches engine pre-empting a bounce)
+var _hole_gen      : Node
+var _hole_data     : Dictionary = {}
 
 func _ready() -> void:
 	last_safe_position = global_position
+	# The engine never bounces the ball: restitution is owned analytically in
+	# _physics_process (reflected about the smooth terrain normal), so the faceted
+	# collision mesh can no longer kick the ball off sideways/backwards.
+	if physics_material_override == null:
+		physics_material_override = PhysicsMaterial.new()
+		physics_material_override.friction = 0.8
+	else:
+		physics_material_override = physics_material_override.duplicate()
+	physics_material_override.bounce = 0.0
 	var bd := EquipmentManager.get_equipped_ball()
 	distance_modifier = bd.get("distance_modifier", 1.0)
 	air_resistance    = bd.get("air_resistance",    0.05)
 	roll_resistance   = bd.get("roll_resistance",   2.8)
 
+func setup_terrain(hole_gen: Node, hole_data: Dictionary) -> void:
+	_hole_gen  = hole_gen
+	_hole_data = hole_data
+
 func _physics_process(delta: float) -> void:
-	is_grounded  = ground_ray.is_colliding()
-	linear_damp  = roll_resistance if is_grounded else air_resistance
+	if freeze:
+		return
+
+	var pos     : Vector3    = global_position
+	var surface : String     = _surface_at(pos)
+	in_sand = (surface == "sand")
+	var resp    : Dictionary = SURFACE.get(surface, SURFACE["fairway"])
+
+	var has_terrain : bool = _hole_gen != null and not _hole_data.is_empty()
+	var near_cup    : bool = false
+	if has_terrain:
+		var cx : float = _hole_data.get("cup_x_off", 0.0)
+		var cz : float = _hole_data.get("cup_z_w", 0.0)
+		near_cup = Vector2(pos.x - cx, pos.z - cz).length() < CUP_SKIP_R
+
+	var contact : bool    = false
+	var n       : Vector3 = Vector3.UP
+	if has_terrain:
+		var h : float = _hole_gen.height_at(pos.x, pos.z, _hole_data)
+		n = _hole_gen.surface_normal_at(pos.x, pos.z, _hole_data)
+		contact = (pos.y - BALL_RADIUS) <= (h + CONTACT_EPS)
+		var vn : float = linear_velocity.dot(n)
+
+		# Landing: reflect the velocity about the SMOOTH normal so the bounce always goes
+		# up-and-forward, never off a triangle edge. min() with last frame's normal speed
+		# catches the case where the engine's contact already scrubbed the descent. Skipped
+		# right at the cup so the ball can drop into the well (engine handles that contact).
+		if contact and not _was_contact and not near_cup:
+			var impact_vn : float = minf(vn, _prev_vn)
+			if impact_vn < -BOUNCE_ARM_SPEED:
+				var into : float = -impact_vn
+				var rest : float = resp["bounce"] * clampf(1.0 - into * REST_SPEED_FALLOFF, REST_MIN_SCALE, 1.0)
+				var tang : Vector3 = linear_velocity - n * vn
+				linear_velocity = tang * TANGENTIAL_KEEP + n * (into * rest)
+				# A ball pitching into sand plugs rather than skipping.
+				if in_sand:
+					linear_velocity *= 0.12
+				# Lift clear of the surface so the engine doesn't re-resolve the contact.
+				var gp : Vector3 = global_position
+				gp.y = h + BALL_RADIUS + CONTACT_EPS
+				global_position = gp
+
+	is_grounded  = contact
+	_was_contact = contact
+	_prev_vn     = linear_velocity.dot(n)
+
+	# Rolling friction once grounded; light air drag while in flight.
+	if is_grounded:
+		var roll_scale : float = roll_resistance / BASE_ROLL_RESISTANCE
+		linear_damp  = resp["linear"]  * roll_scale
+		angular_damp = resp["angular"] * roll_scale
+	else:
+		linear_damp  = air_resistance
+		angular_damp = air_resistance
+
 	_update_safe(delta)
 	_check_resting(delta)
+
+func _surface_at(pos: Vector3) -> String:
+	if _hole_gen == null:
+		return "fairway"
+	return _hole_gen.get_surface_type(pos.x, pos.z, _hole_data)
 
 func _update_safe(delta: float) -> void:
 	if is_grounded and not _in_flight:
@@ -43,28 +171,82 @@ func _update_safe(delta: float) -> void:
 			_safe_timer = 0.0
 
 func _check_resting(delta: float) -> void:
-	if linear_velocity.length() < RESTING_SPEED and is_grounded:
+	# Resting is judged purely on velocity, not ground contact -- a flickering contact
+	# test on bumpy terrain would otherwise reset this timer forever and the ball would
+	# sit there making micro-movements without ever settling.
+	var slow_enough : bool = linear_velocity.length() < RESTING_SPEED \
+		and angular_velocity.length() < RESTING_ANGULAR
+	if slow_enough:
 		_resting_timer += delta
 		if _resting_timer >= RESTING_TIME and not is_resting:
-			is_resting = true
-			_in_flight = false
-			ball_resting.emit()
+			_settle()
 	else:
 		_resting_timer = 0.0
 		if is_resting:
 			is_resting = false
 
-func apply_shot(direction: Vector3, power: float, club_power: float) -> void:
-	is_resting    = false
-	_in_flight    = true
-	_resting_timer = 0.0
-	_safe_timer   = 0.0
-	apply_central_impulse(direction * power * club_power * distance_modifier)
+	if _in_flight and not is_resting:
+		# Watchdog: force a settle only once the ball has been barely moving for a while
+		# (stuck/jittering) -- a fast or long roll never trips this.
+		if linear_velocity.length() < STUCK_SPEED:
+			_stuck_timer += delta
+			if _stuck_timer >= STUCK_TIME:
+				_settle()
+		else:
+			_stuck_timer = 0.0
+		# Absolute backstop so a shot always ends eventually.
+		_flight_timer += delta
+		if _flight_timer >= HARD_CAP:
+			_settle()
+	else:
+		_stuck_timer  = 0.0
+		_flight_timer = 0.0
 
-func reset_to_safe() -> void:
+func _settle() -> void:
+	is_resting       = true
+	_in_flight        = false
 	linear_velocity  = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
-	global_position  = last_safe_position
-	is_resting  = false
-	_in_flight  = false
+	freeze = true
+	ball_resting.emit()
+
+func apply_shot(direction: Vector3, power: float, club_power: float, backspin: float = 0.0) -> void:
+	shot_start_position = global_position
+	freeze        = false
+	is_resting    = false
+	_in_flight    = true
+	_was_contact  = false
+	_prev_vn      = 0.0
 	_resting_timer = 0.0
+	_safe_timer   = 0.0
+	_stuck_timer  = 0.0
+	_flight_timer = 0.0
+	apply_central_impulse(direction * power * club_power * distance_modifier)
+
+	if backspin > 0.001:
+		# Spin opposite the natural forward-roll axis so when the ball lands,
+		# ground friction fights its forward motion instead of feeding it --
+		# the "bite and stop" feel of a real wedge shot.
+		var flat_dir : Vector3 = Vector3(direction.x, 0.0, direction.z).normalized()
+		var spin_axis: Vector3 = flat_dir.cross(Vector3.UP).normalized()
+		angular_velocity = spin_axis * backspin * power
+
+func reset_to_safe() -> void:
+	_reset_to(last_safe_position)
+
+func reset_to_shot_start() -> void:
+	_reset_to(shot_start_position)
+
+func _reset_to(pos: Vector3) -> void:
+	linear_velocity  = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	global_position  = pos
+	is_resting  = false
+	in_sand     = false
+	_in_flight  = false
+	_was_contact = false
+	_prev_vn    = 0.0
+	_resting_timer = 0.0
+	_stuck_timer   = 0.0
+	_flight_timer  = 0.0
+	freeze = true

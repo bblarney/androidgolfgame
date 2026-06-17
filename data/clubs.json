@@ -2,82 +2,109 @@
   "driver_default": {
     "id": "driver_default",
     "name": "Starter Driver",
+    "type": "driver",
     "rarity": "common",
-    "power": 40.0,
+    "power": 60.0,
     "spread": 12.0,
     "spin": 0.1,
-    "description": "Reliable off the tee."
+    "launch_angle": 20.0,
+    "backspin": 0.0,
+    "description": "Long and far off the tee."
   },
   "wood_3": {
     "id": "wood_3",
     "name": "3-Wood",
+    "type": "driver",
     "rarity": "common",
-    "power": 34.0,
+    "power": 51.0,
     "spread": 9.0,
     "spin": 0.15,
+    "launch_angle": 23.0,
+    "backspin": 0.0,
     "description": "Great distance from the fairway."
   },
   "iron_default": {
     "id": "iron_default",
     "name": "Starter Iron",
+    "type": "iron",
     "rarity": "common",
-    "power": 26.0,
+    "power": 40.0,
     "spread": 5.0,
     "spin": 0.3,
-    "description": "Precise approach shots."
+    "launch_angle": 38.0,
+    "backspin": 0.0,
+    "description": "Precise approach shots, about two thirds driver distance."
   },
   "wedge_default": {
     "id": "wedge_default",
     "name": "Pitching Wedge",
+    "type": "wedge",
     "rarity": "common",
-    "power": 17.0,
+    "power": 28.0,
     "spread": 3.0,
     "spin": 0.6,
-    "description": "High arc, short distance."
+    "launch_angle": 40.0,
+    "backspin": 18.0,
+    "description": "High arc, short distance, bites with backspin on landing."
   },
   "putter_default": {
     "id": "putter_default",
     "name": "Starter Putter",
+    "type": "putter",
     "rarity": "common",
-    "power": 7.5,
+    "power": 20.0,
     "spread": 0.5,
     "spin": 0.0,
-    "description": "For the green only."
+    "launch_angle": 0.0,
+    "backspin": 0.0,
+    "description": "Soft and rolls along the ground. For the green only."
   },
   "driver_eagle": {
     "id": "driver_eagle",
     "name": "Eagle Driver",
+    "type": "driver",
     "rarity": "rare",
-    "power": 48.0,
+    "power": 71.0,
     "spread": 8.0,
     "spin": 0.2,
+    "launch_angle": 19.0,
+    "backspin": 0.0,
     "description": "More power, still accurate."
   },
   "iron_precision": {
     "id": "iron_precision",
     "name": "Precision Iron",
+    "type": "iron",
     "rarity": "uncommon",
-    "power": 27.0,
+    "power": 41.0,
     "spread": 2.0,
     "spin": 0.45,
+    "launch_angle": 38.0,
+    "backspin": 0.0,
     "description": "Surgical accuracy on approach."
   },
   "driver_legend": {
     "id": "driver_legend",
     "name": "Legend Driver",
+    "type": "driver",
     "rarity": "legendary",
-    "power": 56.0,
+    "power": 81.0,
     "spread": 6.0,
     "spin": 0.25,
+    "launch_angle": 19.0,
+    "backspin": 0.0,
     "description": "Forged in greatness."
   },
   "wedge_lob": {
     "id": "wedge_lob",
     "name": "Lob Wedge",
+    "type": "wedge",
     "rarity": "uncommon",
-    "power": 15.0,
+    "power": 24.0,
     "spread": 2.0,
     "spin": 0.8,
-    "description": "Near-vertical launch. Stops on a dime."
+    "launch_angle": 46.0,
+    "backspin": 26.0,
+    "description": "Near-vertical launch. Heavy backspin stops it on a dime."
   }
 }

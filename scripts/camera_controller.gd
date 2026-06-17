@@ -18,11 +18,20 @@ func setup(ball: RigidBody3D, hole_data: Dictionary) -> void:
 	_state = State.OVERVIEW
 	_h_angle = 0.0
 
-	var tee: Vector3 = hole_data["tee_position"]
-	var cup: Vector3 = hole_data["cup_position"]
-	var center := (tee + cup) * 0.5
-	global_position = center + Vector3(0.0, 28.0, -25.0)
-	look_at(center, Vector3.UP)
+	var tee : Vector3 = hole_data["tee_position"]
+	var cup : Vector3 = hole_data.get("cup_pos_surface", hole_data["cup_position"])
+	# Look down the line of play. On a dogleg the spine midpoint sits over the
+	# fairway bend, which frames the hole far better than the straight tee->cup line.
+	var mid : Vector3
+	var spine : PackedVector2Array = hole_data.get("spine", PackedVector2Array())
+	if spine.size() >= 2:
+		var s : Vector2 = spine[spine.size() / 2]
+		mid = Vector3(s.x, (tee.y + cup.y) * 0.5, s.y)
+	else:
+		mid = (tee + cup) * 0.5
+	# Stand 16 units behind the tee, elevated, looking down the full fairway
+	global_position = Vector3(tee.x, 22.0, tee.z - 16.0)
+	look_at(mid + Vector3(0.0, 2.0, 0.0), Vector3.UP)
 
 func switch_to_aim() -> void:
 	_state = State.AIM
@@ -58,9 +67,13 @@ func _physics_process(delta: float) -> void:
 		return
 	match _state:
 		State.FOLLOWING:
-			var vel := _ball.linear_velocity
-			var look_dir := vel.normalized() if vel.length() > 0.5 else get_aim_direction()
-			var target := _ball.global_position \
+			var vel     := _ball.linear_velocity
+			# Flatten to XZ so the camera height stays stable throughout the arc --
+			# using the full 3D velocity makes the camera pitch steeply up on launch
+			# and swing down during descent as the Y component dominates.
+			var flat_vel := Vector3(vel.x, 0.0, vel.z)
+			var look_dir := flat_vel.normalized() if flat_vel.length() > 1.5 else get_aim_direction()
+			var target   := _ball.global_position \
 				+ look_dir * (-ORBIT_DIST * 0.65) \
 				+ Vector3(0.0, ORBIT_H * 0.85, 0.0)
 			global_position = global_position.lerp(target, FOLLOW_LERP * delta)
