@@ -4,6 +4,7 @@ signal ball_resting
 signal entered_hazard
 
 @onready var ground_ray: RayCast3D = $GroundRay
+@onready var ball_mesh : MeshInstance3D = $BallMesh
 
 const BALL_RADIUS      : float = 0.117
 const RESTING_SPEED    : float = 0.35
@@ -60,6 +61,7 @@ const CUP_SKIP_R         : float = 1.6
 var is_grounded  := false
 var is_resting   := false
 var in_sand      : bool    = false
+var in_rough     : bool    = false
 var last_safe_position := Vector3.ZERO
 # Where the current shot was struck from -- a ball that finds water is replayed
 # from here (stroke + distance), not from the rolling last_safe_position.
@@ -68,6 +70,10 @@ var shot_start_position := Vector3.ZERO
 var distance_modifier : float = 1.0
 var air_resistance    : float = 0.05
 var roll_resistance   : float = 2.8
+# Backspin shaping from the equipped ball: `mod` multiplies the club's backspin, `add` is a
+# flat amount applied on any club so a "spinner" ball bites even off a driver (which has none).
+var backspin_mod      : float = 1.0
+var backspin_add      : float = 0.0
 
 var _resting_timer : float = 0.0
 var _safe_timer    : float = 0.0
@@ -94,6 +100,12 @@ func _ready() -> void:
 	distance_modifier = bd.get("distance_modifier", 1.0)
 	air_resistance    = bd.get("air_resistance",    0.05)
 	roll_resistance   = bd.get("roll_resistance",   2.8)
+	backspin_mod      = bd.get("backspin_mod",      1.0)
+	backspin_add      = bd.get("backspin_add",      0.0)
+	# The ball mesh ships with a fixed material in the scene; skin it from the equipped ball's
+	# colour/pattern so the player actually sees the ball they bought.
+	if ball_mesh != null:
+		ItemVisuals.apply_ball_material(ball_mesh, bd)
 
 func setup_terrain(hole_gen: Node, hole_data: Dictionary) -> void:
 	_hole_gen  = hole_gen
@@ -105,7 +117,8 @@ func _physics_process(delta: float) -> void:
 
 	var pos     : Vector3    = global_position
 	var surface : String     = _surface_at(pos)
-	in_sand = (surface == "sand")
+	in_sand  = (surface == "sand")
+	in_rough = (surface == "rough")
 	var resp    : Dictionary = SURFACE.get(surface, SURFACE["fairway"])
 
 	var has_terrain : bool = _hole_gen != null and not _hole_data.is_empty()
@@ -141,6 +154,28 @@ func _physics_process(delta: float) -> void:
 				var gp : Vector3 = global_position
 				gp.y = h + BALL_RADIUS + CONTACT_EPS
 				global_position = gp
+
+		# Safety net against tunnelling. The faceted collider can let a fast ball punch
+		# straight THROUGH the terrain -- most easily over the cup, where the terrain mesh is
+		# cut away and the analytic bounce above is deliberately skipped, so a hard-arriving
+		# ball passes the thin cup-well floor and drops into the void under the green (then
+		# trips the out-of-bounds reset). If the ball is ever found below where it belongs,
+		# snap it back up and kill the downward velocity so it can never sink out of the world.
+		var min_y : float
+		if near_cup:
+			# Let the ball settle into the cup well, but never below its floor. cup_base_h is
+			# the green surface at the cup; the well is ~0.65 m deep, so clamp just above that
+			# floor -- low enough to read as holed (inside the cup trigger), high enough that a
+			# hard-arriving ball can never punch on through into the void under the green.
+			min_y = _hole_data.get("cup_base_h", h) - 0.6
+		else:
+			min_y = h + BALL_RADIUS
+		if global_position.y < min_y:
+			var gpc : Vector3 = global_position
+			gpc.y = min_y
+			global_position = gpc
+			if linear_velocity.y < 0.0:
+				linear_velocity.y = 0.0
 
 	is_grounded  = contact
 	_was_contact = contact
@@ -221,15 +256,27 @@ func apply_shot(direction: Vector3, power: float, club_power: float, backspin: f
 	_safe_timer   = 0.0
 	_stuck_timer  = 0.0
 	_flight_timer = 0.0
-	apply_central_impulse(direction * power * club_power * distance_modifier)
+	# A buried lie in a bunker robs the shot of distance: only ~70% of the ball speed
+	# carries, and the sand smothers any spin, so there's no wedge bite to escape with.
+	# Rough is less severe than sand but still grabby: the grass between clubface and ball
+	# steals ~15% of the carry and kills the clean contact a wedge needs to put bite on it.
+	var lie_factor : float = 1.0
+	if in_sand:
+		lie_factor = 0.7
+	elif in_rough:
+		lie_factor = 0.85
+	apply_central_impulse(direction * power * club_power * distance_modifier * lie_factor)
 
-	if backspin > 0.001:
+	# The equipped ball reshapes the club's backspin: a spinner ball multiplies it and adds a
+	# flat floor (so it bites off any club), a roller ball damps it. Sand/rough still kill spin.
+	var eff_backspin : float = backspin * backspin_mod + backspin_add
+	if eff_backspin > 0.001 and not in_sand and not in_rough:
 		# Spin opposite the natural forward-roll axis so when the ball lands,
 		# ground friction fights its forward motion instead of feeding it --
 		# the "bite and stop" feel of a real wedge shot.
 		var flat_dir : Vector3 = Vector3(direction.x, 0.0, direction.z).normalized()
 		var spin_axis: Vector3 = flat_dir.cross(Vector3.UP).normalized()
-		angular_velocity = spin_axis * backspin * power
+		angular_velocity = spin_axis * eff_backspin * power
 
 func reset_to_safe() -> void:
 	_reset_to(last_safe_position)
@@ -238,11 +285,16 @@ func reset_to_shot_start() -> void:
 	_reset_to(shot_start_position)
 
 func _reset_to(pos: Vector3) -> void:
+	# Unfreeze before teleporting: a ball that settled in the water is frozen (STATIC),
+	# and assigning global_position to a frozen static body won't relocate the physics
+	# body -- it would stay in the hazard. Re-frozen at the end once moved.
+	freeze = false
 	linear_velocity  = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	global_position  = pos
 	is_resting  = false
 	in_sand     = false
+	in_rough    = false
 	_in_flight  = false
 	_was_contact = false
 	_prev_vn    = 0.0

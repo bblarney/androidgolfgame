@@ -5,22 +5,50 @@ const CELL        : float = 2.0
 const TERRAIN_W   : float = 110.0   # widened from 80 so doglegs have lateral room
 const OVERRUN     : float = 35.0    # run-off behind the green
 
+# ── Surrounding landscape (the "not a floating island" layers) ────────────────
+# A rolling ground apron extends this far past the playfield in every direction, replacing
+# the void with continuous land that the depth fog (hole_manager) fades into. Its inner edge
+# is stitched to the terrain border at full resolution (see _apron_height); only the outward
+# rings are coarse, so it stays cheap for mobile. BG_DENSITY is the single knob to thin the
+# surrounding forest on weaker devices (1.0 = full, lower = fewer trees).
+const APRON_MARGIN : float = 280.0
+const APRON_DROP   : float = 1.5    # how far below the avg edge the distant far-field settles
+const BG_DENSITY   : float = 1.0
+# Over a water boundary the apron rises from the (submerged) seam to a bank just above the
+# waterline across this distance. Water surfaces spill the same distance past the playfield
+# edge so the flat plane reaches the rising apron and the emerging bank forms the shoreline,
+# rather than the plane ending in a hard straight cut at the boundary.
+const APRON_BANK_W : float = 5.0
+# The over-water apron climbs out of the water STEEPLY over this short distance to a crest that
+# stands APRON_BANK_LIP above the waterline -- a defined bank with a crisp edge that mirrors the
+# carved near shore, instead of a long shallow slope the flat water plane appears to float over.
+const APRON_BANK_RISE : float = 1.8
+const APRON_BANK_LIP  : float = 0.4
+# Decorative apron/perimeter trees must root at least this far above the local waterline, so
+# the treeline sits back on dry ground instead of on the shore bank under the water plane.
+const TREE_SHORE_CLEAR : float = 1.0
+
 # ── Surface colours ───────────────────────────────────────────────────────────
-const COL_ROUGH    : Color = Color(0.22, 0.46, 0.14)
-const COL_FAIR     : Color = Color(0.28, 0.68, 0.20)
-const COL_GREEN    : Color = Color(0.16, 0.82, 0.30)
-const COL_FRINGE   : Color = Color(0.22, 0.58, 0.22)   # collar around the green
-const COL_SAND     : Color = Color(0.88, 0.82, 0.48)
-const COL_WATER    : Color = Color(0.16, 0.42, 0.82, 0.78)
-const COL_WATERBED : Color = Color(0.10, 0.28, 0.34)   # lakebed under the translucent plane
-const COL_FLAG     : Color = Color(0.95, 0.18, 0.18)
+# Turf tones are deliberately muted/desaturated -- real mown grass is a soft olive-green,
+# not the neon it reads at full saturation. Green/fairway are only slightly lighter and
+# finer than the rough, so the course looks lit rather than glowing.
+const COL_ROUGH    : Color = Color(0.08, 0.15, 0.06)
+const COL_FAIR     : Color = Color(0.15, 0.28, 0.11)
+const COL_GREEN    : Color = Color(0.14, 0.32, 0.13)
+const COL_FRINGE   : Color = Color(0.13, 0.25, 0.11)   # collar around the green
+const COL_SAND     : Color = Color(0.78, 0.71, 0.52)   # warm, pale sand; the shader adds grain
+const COL_WATER    : Color = Color(0.16, 0.38, 0.58, 0.80)
+const COL_WATERBED : Color = Color(0.10, 0.24, 0.30)   # lakebed under the translucent plane
+const COL_FLAG     : Color = Color(0.82, 0.20, 0.18)
 # Biome-specific rough tints (parkland keeps the default lush COL_ROUGH).
-const COL_ROUGH_LINKS  : Color = Color(0.40, 0.50, 0.26)   # pale, dry seaside turf
-const COL_ROUGH_FESCUE : Color = Color(0.52, 0.54, 0.28)   # golden tall-grass rough
+const COL_ROUGH_LINKS  : Color = Color(0.25, 0.29, 0.16)   # pale, dry seaside turf
+const COL_ROUGH_FESCUE : Color = Color(0.32, 0.32, 0.18)   # golden tall-grass rough
+const COL_ROUGH_ALPINE : Color = Color(0.14, 0.20, 0.14)   # cool grey-green high-country turf
+const COL_ROUGH_AUTUMN : Color = Color(0.30, 0.22, 0.10)   # warm golden-brown heather floor
 
 # ── Cup well (unchanged machinery: a self-contained collar + walls + floor object
 #    dropped into the flat green pad). See _make_cup_well for the full rationale. ──
-const CUP_RADIUS    : float = 0.6
+const CUP_RADIUS    : float = 0.45   # ~25% smaller mouth -- harder to hole out
 const CUP_DEPTH     : float = 0.55
 const CUP_GATHER_R  : float = 1.2
 const CUP_GATHER_D  : float = 0.10
@@ -32,26 +60,42 @@ const COL_CUP_FLOOR : Color = Color(0.80, 0.78, 0.72)
 const GREEN_RAISE   : float = 0.5    # pad sits this far above the surrounding turf (the lip)
 const GREEN_LIP_END : float = 1.28   # normalized ellipse dist where the bank finishes blending out
 
+# ── Bunker shaping ────────────────────────────────────────────────────────────
+# Bunkers are oval depressions (same ellipse metric as the green) with a defined edge:
+# sand sits a step (LIP_DROP) below the surrounding turf, then a thin raised grass lip
+# rings the rim (taller on the face toward the green). One analytic shape drives the
+# carve, the classification and the lip so the coloured "sand" cells and the carved hole
+# are always the exact same footprint -- the no-clip discipline used for water.
+const BUNKER_LIP_END  : float = 1.18   # normalized ellipse dist where the grass lip blends out
+const BUNKER_LIP_DROP : float = 0.22   # sand rim sits this far below the surrounding turf
+const BUNKER_TILT_MAX : float = 0.35   # max floor slope (rise/run) when draping over grade
+
 # ── Tee box ───────────────────────────────────────────────────────────────────
 const TEE_RAISE    : float = 0.3     # tee pad sits this far above the surrounding turf
 const TEE_HALF_LEN : float = 5.5     # pad half-extent along the line of play
 const TEE_HALF_W   : float = 3.2     # pad half-extent across the line of play
+# The flat turf extends this far past the pad so it also covers the collar skirt (which is
+# +1.0 larger). Without it the collar's outer ring sat over terrain that was already blending
+# UP through the lip, so rolling ground poked through the pad's front/side edges.
+const TEE_FLAT_MARGIN : float = 1.4
 const TEE_LIP      : float = 1.6     # blend band from pad down to natural turf
 const TEE_PEG_H    : float = 0.35    # height the tee peg lifts the ball above the pad
-const COL_TEE      : Color = Color(0.20, 0.56, 0.18)   # neat mown tee, a touch darker than fairway
+const COL_TEE      : Color = Color(0.20, 0.36, 0.16)   # neat mown tee, lighter than the fairway
 const COL_TEE_MARK : Color = Color(0.92, 0.92, 0.95)   # white tee markers
 const COL_PEG      : Color = Color(0.86, 0.74, 0.52)   # wooden tee peg
 # Kept in sync with ball.gd BALL_RADIUS so the ball rests exactly on the peg top.
 const BALL_R       : float = 0.117
 
-const WIND_SHADER : Shader = preload("res://shaders/wind.gdshader")
+const WIND_SHADER    : Shader = preload("res://shaders/wind.gdshader")
+const FLAG_SHADER    : Shader = preload("res://shaders/flag.gdshader")
+const TERRAIN_SHADER : Shader = preload("res://shaders/terrain.gdshader")
 
 var rng := RandomNumberGenerator.new()
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-func generate_hole(seed: int, biome: String = "parkland") -> Dictionary:
-	rng.seed = seed
+func generate_hole(hole_seed: int, biome: String = "parkland") -> Dictionary:
+	rng.seed = hole_seed
 
 	var bp : Dictionary = _roll_blueprint(biome)
 
@@ -120,14 +164,18 @@ func generate_hole(seed: int, biome: String = "parkland") -> Dictionary:
 	}
 
 func build_terrain(data: Dictionary, parent: Node3D) -> void:
+	# Surrounding land first, so the playfield terrain draws over its inner overlap.
+	parent.add_child(_make_apron(data))
+
 	var terrain_mesh : ArrayMesh = _build_mesh(data)
 
 	var mesh_inst := MeshInstance3D.new()
 	mesh_inst.mesh = terrain_mesh
-	var mat := StandardMaterial3D.new()
-	mat.vertex_color_use_as_albedo = true
-	mat.roughness = 0.85
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	# Procedural detail shader: keeps the per-surface vertex colour as the base, but mottles
+	# the brightness and perturbs the normal with world-space noise so the turf/sand reads as
+	# textured rather than a flat slab. (cull_disabled lives in the shader's render_mode.)
+	var mat := ShaderMaterial.new()
+	mat.shader = TERRAIN_SHADER
 	mesh_inst.material_override = mat
 	parent.add_child(mesh_inst)
 
@@ -168,6 +216,8 @@ func build_terrain(data: Dictionary, parent: Node3D) -> void:
 
 func _roll_blueprint(biome: String = "parkland") -> Dictionary:
 	# Par first (weighted), then length per par, shape, elevation theme, water feature.
+	# NOTE: par is the FIRST randf() off the seeded stream -- GameState.get_par_for_hole
+	# reproduces exactly this roll/thresholds to show par for unreached holes. Keep them in sync.
 	var par_roll : float = rng.randf()
 	var par      : int
 	var length   : float
@@ -211,18 +261,19 @@ func _roll_blueprint(biome: String = "parkland") -> Dictionary:
 		elev_a = rng.randf_range(3.0, 7.0)
 	# else: rolling
 
-	# Water feature. Bodies are large now and present on most holes.
+	# Water feature. Bodies are large now and present on the large majority of holes, with
+	# fairway-edge ponds/lakes (side_pond) the most common look.
 	var water : String = "none"
 	var wr : float = rng.randf()
 	if theme == "cliff":
-		# A cliff hole reads best clean; only an occasional lake below.
-		water = "side_pond" if wr < 0.40 else "none"
+		# A cliff hole reads best clean, but a lake below is a common and dramatic pairing.
+		water = "side_pond" if wr < 0.55 else "none"
 	else:
-		if wr < 0.32:
+		if wr < 0.55:
 			water = "side_pond"
-		elif wr < 0.62:
+		elif wr < 0.78:
 			water = "river"
-		elif wr < 0.74 and par >= 4:
+		elif wr < 0.90 and par >= 4:
 			water = "island_green"
 
 	return {
@@ -391,16 +442,32 @@ func _flatten_tee(heights: PackedFloat32Array, pts_x: int, pts_z: int, spine: Pa
 	var center : Vector2 = spine[0]
 	var dir    : Vector2 = (spine[1] - center).normalized() if spine.size() >= 2 else Vector2(0.0, 1.0)
 	var across : Vector2 = Vector2(-dir.y, dir.x)
-	var pad_h  : float   = _sample_height(heights, pts_x, pts_z, center.x, center.y) + TEE_RAISE
+	var flat_l : float   = TEE_HALF_LEN + TEE_FLAT_MARGIN
+	var flat_w : float   = TEE_HALF_W   + TEE_FLAT_MARGIN
+
+	# Stand the pad above the HIGHEST natural turf under its (collar-covering) footprint, not
+	# just the centre sample. On rippled/rolling ground the centre can be a low spot, leaving
+	# the surrounding terrain poking up through the flat pad -- the "clipping" at the edges.
+	var peak : float = -INF
+	for zi in range(pts_z):
+		for xi in range(pts_x):
+			var x : float = (-TERRAIN_W * 0.5) + float(xi) * CELL
+			var z : float = float(zi) * CELL
+			var d : Vector2 = Vector2(x - center.x, z - center.y)
+			if absf(d.dot(dir)) <= flat_l and absf(d.dot(across)) <= flat_w:
+				peak = maxf(peak, heights[zi * pts_x + xi])
+	if peak == -INF:
+		peak = _sample_height(heights, pts_x, pts_z, center.x, center.y)
+	var pad_h : float = peak + TEE_RAISE
 
 	for zi in range(pts_z):
 		for xi in range(pts_x):
 			var x : float = (-TERRAIN_W * 0.5) + float(xi) * CELL
 			var z : float = float(zi) * CELL
 			var d : Vector2 = Vector2(x - center.x, z - center.y)
-			# Distance outside the rectangle (0 when inside the pad).
-			var ol : float = maxf(absf(d.dot(dir))    - TEE_HALF_LEN, 0.0)
-			var op : float = maxf(absf(d.dot(across)) - TEE_HALF_W,   0.0)
+			# Distance outside the flat rectangle (0 when under the pad/collar).
+			var ol : float = maxf(absf(d.dot(dir))    - flat_l, 0.0)
+			var op : float = maxf(absf(d.dot(across)) - flat_w, 0.0)
 			var outside : float = sqrt(ol * ol + op * op)
 			var idx : int = zi * pts_x + xi
 			if outside <= 0.0:
@@ -572,9 +639,10 @@ func _make_river_surface(body: Dictionary) -> MeshInstance3D:
 		var rp : Dictionary = _river_profile(lu, body)
 		var bl : Vector2 = c + axis * lu + perp * (rp["center"] + rp["half_w"])
 		var br : Vector2 = c + axis * lu + perp * (rp["center"] - rp["half_w"])
-		# Clamp the banks to the playfield so the strip ends exactly at the scene edge.
-		bl.x = clampf(bl.x, -hw, hw); bl.y = clampf(bl.y, 0.0, zmax)
-		br.x = clampf(br.x, -hw, hw); br.y = clampf(br.y, 0.0, zmax)
+		# Spill past the scene edge onto the rising apron bank (which occludes the plane where
+		# land emerges) so the river meets its banks continuously instead of cutting off square.
+		bl.x = clampf(bl.x, -(hw + APRON_BANK_W), hw + APRON_BANK_W); bl.y = clampf(bl.y, -APRON_BANK_W, zmax + APRON_BANK_W)
+		br.x = clampf(br.x, -(hw + APRON_BANK_W), hw + APRON_BANK_W); br.y = clampf(br.y, -APRON_BANK_W, zmax + APRON_BANK_W)
 		verts.append(Vector3(bl.x, wy, bl.y))
 		verts.append(Vector3(br.x, wy, br.y))
 		normals.append(Vector3.UP)
@@ -661,8 +729,12 @@ func _make_island_surface(body: Dictionary) -> MeshInstance3D:
 	var verts   := PackedVector3Array()
 	var normals := PackedVector3Array()
 	var indices := PackedInt32Array()
-	for zi in range(pts_z - 1):
-		for xi in range(pts_x - 1):
+	# Extend the quilt this many cells past the playfield so the lake spills onto the rising
+	# apron bank behind/beside the green; the emerging bank occludes the plane to form the
+	# shoreline. Membership is geometric (_in_island_body), so off-grid cells classify fine.
+	var ext : int = int(ceil(APRON_BANK_W / CELL))
+	for zi in range(-ext, pts_z - 1 + ext):
+		for xi in range(-ext, pts_x - 1 + ext):
 			var xc : float = (-TERRAIN_W * 0.5) + (float(xi) + 0.5) * CELL
 			var zc : float = (float(zi) + 0.5) * CELL
 			if not _in_island_body(xc, zc, body):
@@ -857,8 +929,10 @@ func _make_side_surface(body: Dictionary) -> MeshInstance3D:
 		var nrm  : Vector2 = Vector2(-t.y, t.x) * side
 		var wi   : Vector2 = p + nrm * _side_inner_edge(frac, body)   # inner shoreline
 		var wo   : Vector2 = p + nrm * _side_outer_edge(frac, body)   # outward, tapered at the ends
-		wo.x = clampf(wo.x, -hw, hw)
-		wo.y = clampf(wo.y, 0.0, float(body["spine_len"]) + OVERRUN)
+		# Spill past the playfield edge onto the rising apron bank (which occludes the plane
+		# where land emerges above the waterline) so the shore reads continuous, not cut off.
+		wo.x = clampf(wo.x, -(hw + APRON_BANK_W), hw + APRON_BANK_W)
+		wo.y = clampf(wo.y, -APRON_BANK_W, float(body["spine_len"]) + OVERRUN + APRON_BANK_W)
 		verts.append(Vector3(wi.x, wy, wi.y))
 		verts.append(Vector3(wo.x, wy, wo.y))
 		normals.append(Vector3.UP)
@@ -927,65 +1001,197 @@ func water_at(x: float, z: float, y: float, hole_data: Dictionary) -> bool:
 # ── Sand: carved gathering traps ──────────────────────────────────────────────
 
 func _build_sand(heights: PackedFloat32Array, pts_x: int, pts_z: int, spine: PackedVector2Array, fairway_half: float, green: Dictionary, water: Array) -> Array:
-	var out      : Array = []
-	var num_sand : int   = rng.randi_range(1, 3)
-	for _i in range(num_sand):
-		var t   : float   = rng.randf_range(0.30, 0.92)
+	var out     : Array = []
+	var z_max   : float = float(pts_z - 1) * CELL
+	# Roll the two characters independently and mix them on the hole, but guarantee at
+	# least two bunkers overall.
+	var n_fair  : int = rng.randi_range(1, 3)
+	var n_green : int = rng.randi_range(1, 3)
+	# Greenside first so the fairway overlap test sees them too.
+	_place_greenside_bunkers(out, heights, pts_x, pts_z, spine, green, water, z_max, n_green)
+	_place_fairway_bunkers(out, heights, pts_x, pts_z, spine, fairway_half, green, water, z_max, n_fair)
+	return out
+
+# Greenside bunkers: small, deep, steep-faced. They ring the SIDES and REAR of the green
+# (and the front corners) but never the front-centre, so the approach to the pin always
+# stays open. Their floors drape along the green's grade and a taller lip faces the green.
+func _place_greenside_bunkers(out: Array, heights: PackedFloat32Array, pts_x: int, pts_z: int, spine: PackedVector2Array, green: Dictionary, water: Array, z_max: float, count: int) -> void:
+	if count <= 0:
+		return
+	var gc        : Vector2 = green["center"]
+	var pd        : Vector2 = _spine_tangent(spine, 1.0)        # forward, toward the cup
+	var front_ang : float   = atan2(-pd.y, -pd.x)               # the open approach direction
+	var placed_ang : Array[float] = []
+	var attempts  : int = 0
+	while placed_ang.size() < count and attempts < 60:
+		attempts += 1
+		var ang : float = rng.randf_range(0.0, TAU)
+		# Keep the front-centre approach clear, and never crowd two bunkers together.
+		if absf(_ang_diff(ang, front_ang)) < deg_to_rad(35.0):
+			continue
+		var crowded : bool = false
+		for a in placed_ang:
+			if absf(_ang_diff(ang, a)) < deg_to_rad(50.0):
+				crowded = true
+				break
+		if crowded:
+			continue
+		var dir_w  : Vector2 = Vector2(cos(ang), sin(ang))
+		var r_edge : float   = _green_radius_in_dir(green, dir_w)
+		# Long tangential axis (brx) and a flatter radial one (brz) so the trap is drawn out
+		# around the green's arc -- it wraps the side rather than sitting as a round bowl.
+		var brx    : float   = rng.randf_range(4.0, 6.5)
+		var brz    : float   = brx * rng.randf_range(0.45, 0.6)
+		var center : Vector2 = gc + dir_w * (r_edge + rng.randf_range(2.0, 4.0) + brz)
+		if not _bunker_spot_ok(center, brx, brz, green, water, out, z_max):
+			continue
+		# Long axis tangential to the green (rot + 90 deg); the lip faces back at the green.
+		var body : Dictionary = _make_bunker_body("greenside", center, brx, brz, ang + PI * 0.5,
+			rng.randf_range(1.1, 1.8), 0.62, -dir_w, rng.randf_range(0.28, 0.45), heights, pts_x, pts_z)
+		_carve_bunker(heights, pts_x, pts_z, body, green)
+		out.append(body)
+		placed_ang.append(ang)
+
+# Fairway bunkers: wide, shallow, gentle. Usually set into one side of the corridor;
+# occasionally a centre-line carry bunker.
+func _place_fairway_bunkers(out: Array, heights: PackedFloat32Array, pts_x: int, pts_z: int, spine: PackedVector2Array, fairway_half: float, green: Dictionary, water: Array, z_max: float, count: int) -> void:
+	var placed   : int = 0
+	var attempts : int = 0
+	while placed < count and attempts < 60:
+		attempts += 1
+		var t   : float   = rng.randf_range(0.30, 0.75)
 		var c   : Vector2 = _spine_sample(spine, t)
 		var tng : Vector2 = _spine_tangent(spine, t)
 		var nrm : Vector2 = Vector2(-tng.y, tng.x)
-		var side: float   = 1.0 if rng.randf() > 0.5 else -1.0
-
-		# Greenside traps hug the pad (small + deep); fairway traps sit out wide
-		# (large + shallow). "Greenside" is judged by proximity to the green centre.
-		var near_green : bool = c.distance_to(green["center"]) < (green["rz"] + 14.0)
-		var radius : float
-		var depth  : float
-		var off    : float
-		if near_green:
-			radius = rng.randf_range(2.0, 3.5)
-			depth  = rng.randf_range(0.8, 1.3)
-			off    = green["rx"] + rng.randf_range(2.0, 5.0)   # just off the pad edge
+		var brx : float   = rng.randf_range(5.0, 9.0)
+		var brz : float   = brx * rng.randf_range(0.5, 0.7)
+		var off : float
+		var lip_dir : Vector2
+		var rot : float
+		if rng.randf() < 0.18:
+			# Centre-line carry bunker: long axis ACROSS the corridor (a wide carry).
+			off     = rng.randf_range(-fairway_half * 0.3, fairway_half * 0.3)
+			lip_dir = -tng                  # face back toward the tee
+			rot     = atan2(nrm.y, nrm.x)
 		else:
-			radius = rng.randf_range(3.5, 6.0)
-			depth  = rng.randf_range(0.4, 0.7)
-			off    = fairway_half * rng.randf_range(0.5, 1.2)
-
-		var pos2 : Vector2 = c + nrm * side * off
-		# Keep traps off the green pad and out of any water body.
-		if _green_norm_dist(pos2.x, pos2.y, green["center"], green["rx"] + 1.0, green["rz"] + 1.0, green["rot"]) <= 1.0:
+			# Edge bunker: long axis ALONG the fairway, so it runs alongside the corridor the
+			# way the side water does, hard against the fairway edge.
+			var side : float = 1.0 if rng.randf() > 0.5 else -1.0
+			off      = fairway_half * rng.randf_range(0.6, 1.1) * side
+			lip_dir  = -nrm * signf(off)    # face in toward the centre of the fairway
+			rot      = atan2(tng.y, tng.x)
+		var center : Vector2 = c + nrm * off
+		if not _bunker_spot_ok(center, brx, brz, green, water, out, z_max):
 			continue
-		# Reject if the bowl (rim + a small buffer) would touch water -- otherwise the trap
-		# carves the dry shoreline the water plane rests on and the edge appears to float.
-		if _water_within(pos2, radius + 2.0, water):
-			continue
-		_carve_sand(heights, pts_x, pts_z, pos2, radius, depth)
-		out.append({"center": pos2, "radius": radius})
-	return out
+		var body : Dictionary = _make_bunker_body("fairway", center, brx, brz, rot,
+			rng.randf_range(0.5, 0.9), 0.5, lip_dir, rng.randf_range(0.15, 0.28), heights, pts_x, pts_z)
+		_carve_bunker(heights, pts_x, pts_z, body, green)
+		out.append(body)
+		placed += 1
 
-func _carve_sand(heights: PackedFloat32Array, pts_x: int, pts_z: int, center: Vector2, radius: float, depth: float) -> void:
-	# Smooth paraboloid bowl: rim meets the surrounding turf, centre is deepest, so the
-	# ball rolls in and gathers at the bottom. min() keeps the carve from ever raising land.
-	var base : float = _sample_height(heights, pts_x, pts_z, center.x, center.y)
-	var r0   : int   = maxi(int(round((center.x + TERRAIN_W * 0.5 - radius) / CELL)), 0)
-	var r1   : int   = mini(int(round((center.x + TERRAIN_W * 0.5 + radius) / CELL)), pts_x - 1)
-	var z0   : int   = maxi(int(round((center.y - radius) / CELL)), 0)
-	var z1   : int   = mini(int(round((center.y + radius) / CELL)), pts_z - 1)
+# Pack a bunker's analytic shape. base_y is the turf height at the centre; tilt is the
+# local terrain gradient (clamped) so the carved floor drapes along the existing grade --
+# near a raised green that grade is the pad's lip bank, so the trap slopes with the green.
+func _make_bunker_body(kind: String, center: Vector2, rx: float, rz: float, rot: float, depth: float, floor_frac: float, lip_dir: Vector2, lip_h: float, heights: PackedFloat32Array, pts_x: int, pts_z: int) -> Dictionary:
+	var base_y : float = _sample_height(heights, pts_x, pts_z, center.x, center.y)
+	var probe  : float = maxf(rx, rz) * 0.7
+	var gx : float = (_sample_height(heights, pts_x, pts_z, center.x + probe, center.y)
+		- _sample_height(heights, pts_x, pts_z, center.x - probe, center.y)) / (2.0 * probe)
+	var gz : float = (_sample_height(heights, pts_x, pts_z, center.x, center.y + probe)
+		- _sample_height(heights, pts_x, pts_z, center.x, center.y - probe)) / (2.0 * probe)
+	var tilt : Vector2 = Vector2(clampf(gx, -BUNKER_TILT_MAX, BUNKER_TILT_MAX), clampf(gz, -BUNKER_TILT_MAX, BUNKER_TILT_MAX))
+	return {
+		"kind": kind, "center": center, "rx": rx, "rz": rz, "rot": rot,
+		"depth": depth, "floor_frac": floor_frac,
+		"lip_dir": lip_dir.normalized() if lip_dir.length() > 0.001 else Vector2.ZERO,
+		"lip_h": lip_h, "base_y": base_y, "tilt": tilt,
+	}
+
+# Is this spot clear of the green pad, water and other bunkers, and inside the playfield?
+func _bunker_spot_ok(center: Vector2, rx: float, rz: float, green: Dictionary, water: Array, out: Array, z_max: float) -> bool:
+	var mr : float = maxf(rx, rz)
+	if absf(center.x) > TERRAIN_W * 0.5 - mr * 0.5 or center.y < mr * 0.5 or center.y > z_max - mr * 0.5:
+		return false
+	# Off the green pad (plus a small buffer so the lip never notches the pad).
+	if _green_norm_dist(center.x, center.y, green["center"], green["rx"] + 1.0, green["rz"] + 1.0, green["rot"]) <= 1.0:
+		return false
+	# Clear of water -- otherwise the trap carves the dry shoreline the water plane rests on.
+	if _water_within(center, mr + 2.0, water):
+		return false
+	for b: Dictionary in out:
+		if center.distance_to(b["center"]) < mr + maxf(b["rx"], b["rz"]) + 1.0:
+			return false
+	return true
+
+# Smallest signed angular difference a-b, wrapped to [-PI, PI].
+func _ang_diff(a: float, b: float) -> float:
+	return atan2(sin(a - b), cos(a - b))
+
+# The green ellipse's radius (world units) in a given unit world direction.
+func _green_radius_in_dir(green: Dictionary, dir_w: Vector2) -> float:
+	var rot : float = green["rot"]
+	var ux  : float =  dir_w.x * cos(rot) + dir_w.y * sin(rot)
+	var uz  : float = -dir_w.x * sin(rot) + dir_w.y * cos(rot)
+	var rx  : float = green["rx"]
+	var rz  : float = green["rz"]
+	return 1.0 / sqrt((ux / rx) * (ux / rx) + (uz / rz) * (uz / rz))
+
+func _carve_bunker(heights: PackedFloat32Array, pts_x: int, pts_z: int, body: Dictionary, green: Dictionary) -> void:
+	# Oval depression with a defined edge. Within the ellipse: a draped (tilted) sand floor,
+	# then a steep wall up to a rim that sits LIP_DROP below the surrounding turf. Just
+	# outside it: a thin raised grass lip, taller on the face toward `lip_dir`. min() keeps
+	# the floor/wall from ever raising land; the lip is the one deliberate max() band.
+	var center : Vector2 = body["center"]
+	var rx     : float   = body["rx"]
+	var rz     : float   = body["rz"]
+	var rot    : float   = body["rot"]
+	var depth  : float   = body["depth"]
+	var ff     : float   = body["floor_frac"]
+	var lip_dir: Vector2 = body["lip_dir"]
+	var lip_h  : float   = body["lip_h"]
+	var base_y : float   = body["base_y"]
+	var tilt   : Vector2 = body["tilt"]
+	var mr     : float   = maxf(rx, rz) * BUNKER_LIP_END
+	var r0 : int = maxi(int(round((center.x + TERRAIN_W * 0.5 - mr) / CELL)), 0)
+	var r1 : int = mini(int(round((center.x + TERRAIN_W * 0.5 + mr) / CELL)), pts_x - 1)
+	var z0 : int = maxi(int(round((center.y - mr) / CELL)), 0)
+	var z1 : int = mini(int(round((center.y + mr) / CELL)), pts_z - 1)
 	for zi in range(z0, z1 + 1):
 		for xi in range(r0, r1 + 1):
-			var x    : float = (-TERRAIN_W * 0.5) + float(xi) * CELL
-			var z    : float = float(zi) * CELL
-			var dist : float = Vector2(x - center.x, z - center.y).length()
-			if dist >= radius:
+			var x : float = (-TERRAIN_W * 0.5) + float(xi) * CELL
+			var z : float = float(zi) * CELL
+			var nd : float = _green_norm_dist(x, z, center, rx, rz, rot)
+			if nd > BUNKER_LIP_END:
 				continue
-			var f : float = dist / radius
-			var target : float = base - depth * (1.0 - f * f)
-			var idx : int = zi * pts_x + xi
-			heights[idx] = minf(heights[idx], target)
+			# Never touch the green pad OR its collar -- a raised bunker lip poking into the
+			# fringe band is what made the collar read jagged. Keeping clear out to
+			# GREEN_LIP_END leaves the green's edge the smooth ellipse the green carve drew.
+			if _green_norm_dist(x, z, green["center"], green["rx"], green["rz"], green["rot"]) <= GREEN_LIP_END:
+				continue
+			var off2  : Vector2 = Vector2(x - center.x, z - center.y)
+			var ref_y : float   = base_y + tilt.x * off2.x + tilt.y * off2.y   # local turf
+			var idx   : int     = zi * pts_x + xi
+			if nd <= ff:
+				heights[idx] = minf(heights[idx], ref_y - depth)
+			elif nd <= 1.0:
+				var rim_y   : float = ref_y - BUNKER_LIP_DROP
+				var floor_y : float = ref_y - depth
+				var t : float = (nd - ff) / (1.0 - ff)
+				t = t * t * (3.0 - 2.0 * t)
+				heights[idx] = minf(heights[idx], lerpf(floor_y, rim_y, t))
+			else:
+				# Grass lip: raised above the local turf, tall on the face toward the green,
+				# fading out by BUNKER_LIP_END so it blends cleanly with no vertical gap.
+				var face : float = 1.0
+				if lip_dir != Vector2.ZERO and off2.length() > 0.001:
+					face = clampf(off2.normalized().dot(lip_dir), 0.0, 1.0)
+				var fade  : float = 1.0 - smoothstep(1.0, BUNKER_LIP_END, nd)
+				var raise : float = lip_h * (0.35 + 0.65 * face) * fade
+				heights[idx] = maxf(heights[idx], ref_y + raise)
 
 func _in_sand(x: float, z: float, sand: Array) -> bool:
 	for s: Dictionary in sand:
-		if Vector2(x - s["center"].x, z - s["center"].y).length() <= s["radius"]:
+		if _green_norm_dist(x, z, s["center"], s["rx"], s["rz"], s["rot"]) <= 1.0:
 			return true
 	return false
 
@@ -999,21 +1205,63 @@ func _build_vegetation(heights: PackedFloat32Array, pts_x: int, pts_z: int, spin
 	var z_max : float = float(pts_z - 1) * CELL
 	match bp["biome"]:
 		"parkland":
-			# Tree-lined: a dense gallery of trees hugging both fairway edges, plus a light
-			# carpet of short grass.
-			_veg_line_trees(out, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, 0.55, Vector2(2.0, 13.0), 1.0, 1.7)
+			# Tree-lined: a dense gallery of mixed broadleaves (with the odd slim/pine) hugging
+			# both fairway edges, plus a light carpet of short grass.
+			_veg_line_trees(out, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, 0.55, Vector2(2.0, 26.0), 1.0, 1.7, ["tree", "tree", "tree", "tree", "tree_slim", "tree_slim", "pine"])
 			_veg_scatter(out, "grass", 220, 0.4, 0.8, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, z_max)
 		"links":
 			# Open seaside links: almost no trees, low gorse-like scrub and wispy short grass.
-			_veg_line_trees(out, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, 0.04, Vector2(4.0, 16.0), 0.9, 1.4)
+			_veg_line_trees(out, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, 0.04, Vector2(4.0, 16.0), 0.9, 1.4, ["tree", "tree", "tree_slim"])
 			_veg_scatter(out, "scrub", 90,  0.7, 1.3, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, z_max)
 			_veg_scatter(out, "grass", 280, 0.3, 0.6, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, z_max)
 		"fescue":
 			# Tall fescue: the rough is a sea of grass. Tufts are half-height now but twice as
 			# dense, so the sea reads thicker without any single blade towering over the ball.
 			_veg_scatter(out, "grass", 4400, 0.7, 1.3, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, z_max)
-			_veg_line_trees(out, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, 0.12, Vector2(3.0, 14.0), 1.0, 1.6)
+			_veg_line_trees(out, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, 0.12, Vector2(3.0, 14.0), 1.0, 1.6, ["tree", "tree", "tree_slim"])
+		"alpine":
+			# High-country conifer forest: dense pine lines (the odd broadleaf) over a cool,
+			# grey-green floor with only sparse grass.
+			_veg_line_trees(out, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, 0.5, Vector2(2.0, 28.0), 1.0, 1.8, ["pine", "pine", "pine", "pine", "tree"])
+			_veg_scatter(out, "grass", 160, 0.3, 0.6, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, z_max)
+		"autumn":
+			# Warm deciduous woodland: a dense gallery of round canopies in fall colours
+			# (orange/red/gold) with the occasional evergreen, over a moderate grass carpet.
+			_veg_line_trees(out, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, 0.55, Vector2(2.0, 26.0), 1.0, 1.7, ["tree_autumn_orange", "tree_autumn_orange", "tree_autumn_red", "tree_autumn_gold", "tree_autumn_gold", "pine"])
+			_veg_scatter(out, "grass", 200, 0.4, 0.8, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, z_max)
+
+	# ── Surrounding landscape (every biome) ──────────────────────────────────
+	# Three background layers that make the hole read as part of a larger course:
+	#   * a treeline "wall" just outside the playfield edge (hides the mesh seam),
+	#   * sparse trees scattered across the apron beyond it (fading into fog),
+	#   * a light fill of trees through the in-bounds outer rough (so it isn't barren).
+	# The first two are `decorative` (no colliders, off-playfield); the rough fill is in
+	# bounds, so it keeps the normal trunk colliders. Palette + counts come from _bg_profile.
+	var bg     : Dictionary = _bg_profile(bp["biome"])
+	var palette : Array     = bg["palette"]
+	var edge_h : float      = _edge_avg_h(heights, pts_x, pts_z)
+	var base_h : float      = edge_h - APRON_DROP
+	_veg_perimeter_trees(out, heights, pts_x, pts_z, z_max, edge_h, water, palette, int(bg["rows"]), bg["smin"], bg["smax"], minf(float(bg["perim_density"]) * BG_DENSITY, 1.0))
+	_veg_apron_scatter(out, heights, pts_x, pts_z, z_max, base_h, water, palette, int(round(float(bg["scatter"]) * BG_DENSITY)), bg["smin"], bg["smax"])
+	if int(bg["rough_trees"]) > 0:
+		_veg_scatter_palette(out, palette, int(round(float(bg["rough_trees"]) * BG_DENSITY)), bg["smin"], bg["smax"], heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, z_max)
 	return out
+
+# Per-biome background landscape recipe: tree palette, perimeter row count + per-station
+# probability, apron-scatter count, in-bounds rough-fill count, and a scale range. Open
+# biomes (links, fescue) deliberately keep a thin perimeter and rely more on the apron + fog.
+func _bg_profile(biome: String) -> Dictionary:
+	match biome:
+		"links":
+			return {"palette": ["tree", "tree_slim"], "rows": 1, "perim_density": 0.18, "scatter": 24, "rough_trees": 0, "smin": 0.9, "smax": 1.4}
+		"fescue":
+			return {"palette": ["tree", "tree_slim", "pine"], "rows": 1, "perim_density": 0.35, "scatter": 36, "rough_trees": 20, "smin": 1.0, "smax": 1.6}
+		"alpine":
+			return {"palette": ["pine", "pine", "pine", "tree"], "rows": 3, "perim_density": 0.85, "scatter": 110, "rough_trees": 90, "smin": 1.0, "smax": 1.9}
+		"autumn":
+			return {"palette": ["tree_autumn_orange", "tree_autumn_red", "tree_autumn_gold", "pine"], "rows": 3, "perim_density": 0.8, "scatter": 100, "rough_trees": 90, "smin": 1.0, "smax": 1.8}
+		_:  # parkland
+			return {"palette": ["tree", "tree", "tree_slim", "pine"], "rows": 3, "perim_density": 0.8, "scatter": 100, "rough_trees": 90, "smin": 1.0, "smax": 1.8}
 
 # Is (x, z) a valid spot for vegetation: rough turf, clear of the tee pad.
 func _veg_ok(x: float, z: float, spine: PackedVector2Array, fairway_half: float, green: Dictionary, water: Array, sand: Array, tee: Dictionary) -> bool:
@@ -1021,12 +1269,22 @@ func _veg_ok(x: float, z: float, spine: PackedVector2Array, fairway_half: float,
 		return false
 	if Vector2(x, z).distance_to(tee["center"]) < 8.0:
 		return false
+	# Keep the wedge BEHIND the tee clear: the tee-shot camera stands ~16 m back and looks
+	# down the line of play, so any tree behind the teeing line crowds (or blocks) that view.
+	var d   : Vector2 = Vector2(x, z) - tee["center"]
+	var dir : Vector2 = tee.get("dir", Vector2(0.0, 1.0))
+	var behind : float = -d.dot(dir)
+	if behind > 0.0 and behind < 34.0 and absf(d.dot(Vector2(-dir.y, dir.x))) < fairway_half + 16.0:
+		return false
 	return true
 
 # Walk down the spine and line both fairway edges with trees (probability `density` per
-# side per station). `band` is the offset range beyond the fairway edge.
-func _veg_line_trees(out: Array, heights: PackedFloat32Array, pts_x: int, pts_z: int, spine: PackedVector2Array, fairway_half: float, green: Dictionary, water: Array, sand: Array, tee: Dictionary, density: float, band: Vector2, smin: float, smax: float) -> void:
-	var stations : int = 70
+# side per station). `band` is the offset range beyond the fairway edge. More stations and
+# a small per-hit cluster (1-3 trees at staggered depths) build deeper, denser tree lines --
+# roughly triple the old single-row count. `palette` is a weighted list of tree types (a
+# type's repetition count is its weight); one is picked per tree so designs intermix.
+func _veg_line_trees(out: Array, heights: PackedFloat32Array, pts_x: int, pts_z: int, spine: PackedVector2Array, fairway_half: float, green: Dictionary, water: Array, sand: Array, tee: Dictionary, density: float, band: Vector2, smin: float, smax: float, palette: Array) -> void:
+	var stations : int = 110
 	for k in range(stations + 1):
 		var frac : float   = float(k) / float(stations)
 		var c    : Vector2 = _spine_sample(spine, frac)
@@ -1035,12 +1293,15 @@ func _veg_line_trees(out: Array, heights: PackedFloat32Array, pts_x: int, pts_z:
 		for side in [-1.0, 1.0]:
 			if rng.randf() > density:
 				continue
-			var off : float   = fairway_half + rng.randf_range(band.x, band.y)
-			var p   : Vector2 = c + nrm * side * off
-			if not _veg_ok(p.x, p.y, spine, fairway_half, green, water, sand, tee):
-				continue
-			var y : float = _sample_height(heights, pts_x, pts_z, p.x, p.y)
-			out.append({"type": "tree", "pos": Vector3(p.x, y, p.y), "yaw": rng.randf() * TAU, "scale": rng.randf_range(smin, smax)})
+			var cluster : int = rng.randi_range(1, 3)
+			for _n in range(cluster):
+				var off : float   = fairway_half + rng.randf_range(band.x, band.y)
+				var p   : Vector2 = c + nrm * side * off
+				if not _veg_ok(p.x, p.y, spine, fairway_half, green, water, sand, tee):
+					continue
+				var y : float = _sample_height(heights, pts_x, pts_z, p.x, p.y)
+				var ttype : String = palette[rng.randi_range(0, palette.size() - 1)]
+				out.append({"type": ttype, "pos": Vector3(p.x, y, p.y), "yaw": rng.randf() * TAU, "scale": rng.randf_range(smin, smax)})
 
 # Random rejection-sample `count` props of `type` across the rough.
 func _veg_scatter(out: Array, type: String, count: int, smin: float, smax: float, heights: PackedFloat32Array, pts_x: int, pts_z: int, spine: PackedVector2Array, fairway_half: float, green: Dictionary, water: Array, sand: Array, tee: Dictionary, z_max: float) -> void:
@@ -1057,6 +1318,260 @@ func _veg_scatter(out: Array, type: String, count: int, smin: float, smax: float
 		var y : float = _sample_height(heights, pts_x, pts_z, x, z)
 		out.append({"type": type, "pos": Vector3(x, y, z), "yaw": rng.randf() * TAU, "scale": rng.randf_range(smin, smax)})
 		placed += 1
+
+# As _veg_scatter, but each prop's type is drawn from a weighted `palette` (so a mixed tree
+# fill intermixes types). In-bounds rough only -- these get the normal trunk colliders.
+func _veg_scatter_palette(out: Array, palette: Array, count: int, smin: float, smax: float, heights: PackedFloat32Array, pts_x: int, pts_z: int, spine: PackedVector2Array, fairway_half: float, green: Dictionary, water: Array, sand: Array, tee: Dictionary, z_max: float) -> void:
+	var hw       : float = TERRAIN_W * 0.5 - 2.0
+	var placed   : int   = 0
+	var attempts : int   = 0
+	var max_att  : int   = count * 5
+	while placed < count and attempts < max_att:
+		attempts += 1
+		var x : float = rng.randf_range(-hw, hw)
+		var z : float = rng.randf_range(0.0, z_max)
+		if not _veg_ok(x, z, spine, fairway_half, green, water, sand, tee):
+			continue
+		var y : float = _sample_height(heights, pts_x, pts_z, x, z)
+		var ttype : String = palette[rng.randi_range(0, palette.size() - 1)]
+		out.append({"type": ttype, "pos": Vector3(x, y, z), "yaw": rng.randf() * TAU, "scale": rng.randf_range(smin, smax)})
+		placed += 1
+
+# Treeline "wall" just outside the playfield boundary: walk the rectangle (both long edges +
+# the tee/back ends) and, per station per row, drop a tree a few metres outside the edge. The
+# trunks root at the playfield lip height (where the apron meets the course) so they line the
+# boundary cleanly. Marked `decorative` -- off-playfield, no colliders.
+func _veg_perimeter_trees(out: Array, heights: PackedFloat32Array, pts_x: int, pts_z: int, z_max: float, edge_h: float, water: Array, palette: Array, rows: int, smin: float, smax: float, density: float) -> void:
+	var hw     : float = TERRAIN_W * 0.5
+	var base_h : float = edge_h - APRON_DROP   # far-field apron level the roll settles toward
+	var step   : float = 5.0
+	var nz     : int   = int(z_max / step)
+	var nx     : int   = int((hw * 2.0) / step)
+	# Long edges (x = +/-hw), trees pushed outward (+/-x).
+	for side in [-1.0, 1.0]:
+		for i in range(nz + 1):
+			_perim_place(out, heights, pts_x, pts_z, base_h, z_max, water, Vector2(side * hw, float(i) * step), Vector2(side, 0.0), rows, palette, smin, smax, density)
+	# Tee end (z = 0, outward -z) and back end (z = z_max, outward +z). On the tee end we
+	# leave a central gap so the treeline wall never sits behind the tee in the camera's view.
+	for endz in [0.0, z_max]:
+		var ndir : float = -1.0 if endz == 0.0 else 1.0
+		for i in range(nx + 1):
+			var bx : float = -hw + float(i) * step
+			if endz == 0.0 and absf(bx) < 30.0:
+				continue
+			_perim_place(out, heights, pts_x, pts_z, base_h, z_max, water, Vector2(bx, endz), Vector2(0.0, ndir), rows, palette, smin, smax, density)
+
+func _perim_place(out: Array, heights: PackedFloat32Array, pts_x: int, pts_z: int, base_h: float, z_max: float, water: Array, boundary: Vector2, outdir: Vector2, rows: int, palette: Array, smin: float, smax: float, density: float) -> void:
+	for r in range(rows):
+		if rng.randf() > density:
+			continue
+		var off    : float   = 3.0 + float(r) * 6.0 + rng.randf_range(-1.5, 1.5)
+		var jitter : Vector2 = Vector2(rng.randf_range(-2.0, 2.0), rng.randf_range(-2.0, 2.0))
+		var p      : Vector2 = boundary + outdir * off + jitter
+		# Root on the apron surface just outside the boundary so trunks sit on the ground.
+		var y      : float   = _apron_height(heights, pts_x, pts_z, p.x, p.y, base_h, z_max, water)
+		# Skip the shore bank / water: those trees would stand under the apron-spilling water
+		# plane. Leaving the immediate shore clear keeps the treeline back on dry land.
+		var wy     : float   = _apron_water_y(p.x, p.y, z_max, water)
+		if wy > -INF and y < wy + TREE_SHORE_CLEAR:
+			continue
+		var ttype  : String  = palette[rng.randi_range(0, palette.size() - 1)]
+		out.append({"type": ttype, "pos": Vector3(p.x, y, p.y), "yaw": rng.randf() * TAU, "scale": rng.randf_range(smin, smax), "decorative": true})
+
+# Sparse trees scattered across the apron ring (beyond the perimeter wall, out toward the
+# fog). Rooted on the apron surface via _apron_height. `decorative` -- no colliders.
+func _veg_apron_scatter(out: Array, heights: PackedFloat32Array, pts_x: int, pts_z: int, z_max: float, base_h: float, water: Array, palette: Array, count: int, smin: float, smax: float) -> void:
+	var hw       : float = TERRAIN_W * 0.5
+	var inner    : float = hw + 8.0            # leave the boundary band to the perimeter pass
+	var reach    : float = APRON_MARGIN * 0.7  # stop short of the fog wall
+	var placed   : int   = 0
+	var attempts : int   = 0
+	var max_att  : int   = count * 4
+	while placed < count and attempts < max_att:
+		attempts += 1
+		var x : float = rng.randf_range(-hw - reach, hw + reach)
+		var z : float = rng.randf_range(-reach, z_max + reach)
+		# Skip points inside (or hugging) the playfield -- those belong to other passes.
+		if absf(x) < inner and z > -8.0 and z < z_max + 8.0:
+			continue
+		# Keep the corridor behind the tee (low z, near centre) clear for the tee-shot camera.
+		if z < 8.0 and absf(x) < 32.0:
+			continue
+		var y : float = _apron_height(heights, pts_x, pts_z, x, z, base_h, z_max, water)
+		# Don't scatter onto the shore bank / water (would sit under the water plane).
+		var wy : float = _apron_water_y(x, z, z_max, water)
+		if wy > -INF and y < wy + TREE_SHORE_CLEAR:
+			continue
+		var ttype : String = palette[rng.randi_range(0, palette.size() - 1)]
+		out.append({"type": ttype, "pos": Vector3(x, y, z), "yaw": rng.randf() * TAU, "scale": rng.randf_range(smin, smax), "decorative": true})
+		placed += 1
+
+# ── Surrounding apron ─────────────────────────────────────────────────────────
+# Average height of the four playfield border rows/cols. The apron meets the course near
+# this elevation so the seam between them stays subtle (and is further hidden by the
+# perimeter treeline + fog).
+func _edge_avg_h(heights: PackedFloat32Array, pts_x: int, pts_z: int) -> float:
+	var s : float = 0.0
+	var n : int   = 0
+	for xi in range(pts_x):
+		s += heights[xi]                            # z = 0 border
+		s += heights[(pts_z - 1) * pts_x + xi]      # z = max border
+		n += 2
+	for zi in range(pts_z):
+		s += heights[zi * pts_x]                    # x = -hw border
+		s += heights[zi * pts_x + (pts_x - 1)]      # x = +hw border
+		n += 2
+	return s / float(n) if n > 0 else 0.0
+
+# Apron surface height at a world point, and the single source of truth shared by the apron
+# mesh and the background tree placement.
+#   * At the seam (d = 0) it returns the EXACT terrain border height (_sample_height clamps to
+#     the grid, so any outside point maps to its nearest border vertex). The apron mesh samples
+#     the seam at terrain (CELL) resolution, so its inner edge coincides with the terrain's
+#     rolling border vertices and there is no gap -- whatever the hole's elevation change.
+#   * Where the nearest border point is under water, the seam still matches the (low) pond bed
+#     so it stays watertight there, but a few metres out the apron rises to a BANK just above
+#     the waterline, so the pond reads as enclosed by a far shore instead of the apron jutting
+#     out of the bed (which also left the water plane edge looking like a floating wall).
+#   * Beyond the bank it eases toward a gently rolling far-field level so distant land undulates.
+func _apron_height(heights: PackedFloat32Array, pts_x: int, pts_z: int, x: float, z: float, base_h: float, z_max: float, water: Array) -> float:
+	var hw       : float = TERRAIN_W * 0.5
+	var dx       : float = maxf(absf(x) - hw, 0.0)
+	var dz       : float = maxf(maxf(-z, z - z_max), 0.0)
+	var d        : float = sqrt(dx * dx + dz * dz)
+	var border_h : float = _sample_height(heights, pts_x, pts_z, x, z)
+	if d <= 0.001:
+		return border_h   # exact seam -> watertight with the terrain border
+	var roll  : float = sin(x * 0.018) * cos(z * 0.015) + sin(x * 0.041 + z * 0.033) * 0.5
+	var far_h : float = base_h + roll * 4.0
+	# Where the nearest in-bounds point is submerged, build a DEFINED bank that mirrors the
+	# carved near shore: a short, STEEP climb out of the water to a crest just above the
+	# waterline (a real water's edge), then a gentle ease to the far field. The crest is held
+	# across the water plane's reach so the plane always meets solid bank -- a crisp edge --
+	# rather than fading out over a long shallow slope that reads as the water floating.
+	var crest : float = -INF
+	for b: Dictionary in water:
+		if _in_body(clampf(x, -hw, hw), clampf(z, 0.0, z_max), b):
+			crest = maxf(crest, float(b["water_y"]) + APRON_BANK_LIP)
+	if crest > -INF:
+		crest = maxf(crest, border_h)
+		if d <= APRON_BANK_RISE:
+			var tb : float = d / APRON_BANK_RISE
+			return lerpf(border_h, crest, tb * tb * (3.0 - 2.0 * tb))
+		var te : float = clampf((d - APRON_BANK_RISE) / (APRON_MARGIN - APRON_BANK_RISE), 0.0, 1.0)
+		var he : float = lerpf(crest, far_h, te * te * (3.0 - 2.0 * te))
+		return maxf(he, crest) if d <= APRON_BANK_W else he
+	# Dry border: hold the seam height across the near apron, then ease to the rolling far field.
+	if d <= APRON_BANK_W:
+		return border_h
+	var t : float = clampf((d - APRON_BANK_W) / (APRON_MARGIN - APRON_BANK_W), 0.0, 1.0)
+	return lerpf(border_h, far_h, t * t * (3.0 - 2.0 * t))
+
+# The waterline at an apron point if its nearest in-bounds point is submerged (the same test
+# _apron_height uses to raise the shore bank), else -INF. Lets the decorative tree passes keep
+# the treeline back from the water rather than planting it on the bank under the water plane.
+func _apron_water_y(x: float, z: float, z_max: float, water: Array) -> float:
+	var hw : float = TERRAIN_W * 0.5
+	var cx : float = clampf(x, -hw, hw)
+	var cz : float = clampf(z, 0.0, z_max)
+	var best : float = -INF
+	for b: Dictionary in water:
+		if _in_body(cx, cz, b):
+			best = maxf(best, float(b["water_y"]))
+	return best
+
+# A rolling ground plane that surrounds the playfield (never covers its interior). Visual only
+# -- no collider (the ball is reset out of bounds long before it could reach here). Coloured
+# with the biome rough tone and drawn with the terrain shader so its detail matches the course;
+# its far reaches dissolve into the depth fog set in hole_manager. Lives under `course`.
+func _make_apron(data: Dictionary) -> MeshInstance3D:
+	var pts_x   : int                = data["pts_x"]
+	var pts_z   : int                = data["pts_z"]
+	var heights : PackedFloat32Array = data["heights"]
+	var water   : Array              = data.get("water_bodies", [])
+	var z_max   : float              = float(pts_z - 1) * CELL
+	var hw      : float              = TERRAIN_W * 0.5
+	var base_h  : float              = _edge_avg_h(heights, pts_x, pts_z) - APRON_DROP
+
+	var col : Color = _rough_color(data.get("biome", "parkland"))
+	col.a = 1.0   # terrain shader's "turf" bucket
+
+	# A single continuous "picture-frame" ring around the playfield, instead of four separate
+	# edge strips. The inner loop is sampled at terrain (CELL) resolution along the whole border,
+	# so it lands on the same rolling border vertices the terrain mesh ends on -- watertight. The
+	# loop then steps outward over coarse rings to the fog horizon. Because it is ONE grid with a
+	# shared topology (no independent strips meeting at the corners), there are no T-junctions, so
+	# the mismatched-vertex cracks that used to show the void along the distant seams are gone.
+	# Corner points get a diagonal outward normal so the rings fan out and fill the corners.
+	var loop := PackedVector2Array()
+	var onrm := PackedVector2Array()
+	const DIAG : float = 0.70710678
+	# Walk the border as a closed loop: front edge (+x), right edge (+z), back edge (-x), left
+	# edge (-z). Each corner is emitted once with the averaged (diagonal) outward normal.
+	loop.append(Vector2(-hw, 0.0));    onrm.append(Vector2(-DIAG, -DIAG))
+	var x : float = -hw + CELL
+	while x < hw - 0.001:
+		loop.append(Vector2(x, 0.0));  onrm.append(Vector2(0.0, -1.0)); x += CELL
+	loop.append(Vector2(hw, 0.0));     onrm.append(Vector2(DIAG, -DIAG))
+	var z : float = CELL
+	while z < z_max - 0.001:
+		loop.append(Vector2(hw, z));   onrm.append(Vector2(1.0, 0.0)); z += CELL
+	loop.append(Vector2(hw, z_max));   onrm.append(Vector2(DIAG, DIAG))
+	x = hw - CELL
+	while x > -hw + 0.001:
+		loop.append(Vector2(x, z_max)); onrm.append(Vector2(0.0, 1.0)); x -= CELL
+	loop.append(Vector2(-hw, z_max));  onrm.append(Vector2(-DIAG, DIAG))
+	z = z_max - CELL
+	while z > 0.001:
+		loop.append(Vector2(-hw, z));  onrm.append(Vector2(-1.0, 0.0)); z -= CELL
+
+	# Outward rings. The close ring at APRON_BANK_RISE gives the steep over-water bank real
+	# geometry (without it the bank flattens into the long gradual slope to the far field).
+	var rdist : Array = [0.0, APRON_BANK_RISE, APRON_BANK_W, 30.0, 90.0, APRON_MARGIN]
+	var nr    : int   = rdist.size()
+	var ns    : int   = loop.size()
+
+	var verts   := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var colors  := PackedColorArray()
+	var indices := PackedInt32Array()
+	for j in range(ns):
+		for k in range(nr):
+			var p : Vector2 = loop[j] + onrm[j] * float(rdist[k])
+			var y : float = _apron_height(heights, pts_x, pts_z, p.x, p.y, base_h, z_max, water)
+			verts.append(Vector3(p.x, y, p.y))
+			colors.append(col)
+			normals.append(Vector3.UP)   # replaced below once neighbours exist
+	# Per-vertex normals from neighbours. The loop wraps (j is modular); rings clamp.
+	for j in range(ns):
+		var jp : int = (j + 1) % ns
+		var jm : int = (j - 1 + ns) % ns
+		for k in range(nr):
+			var a : Vector3 = verts[jp * nr + k] - verts[jm * nr + k]
+			var c : Vector3 = verts[j * nr + mini(k + 1, nr - 1)] - verts[j * nr + maxi(k - 1, 0)]
+			var n : Vector3 = c.cross(a)
+			if n.y < 0.0:
+				n = -n
+			normals[j * nr + k] = n.normalized() if n.length() > 1e-6 else Vector3.UP
+	# Triangulate between consecutive rings around the closed loop (jn wraps to seal the frame).
+	for j in range(ns):
+		var jn : int = (j + 1) % ns
+		for k in range(nr - 1):
+			var tl : int = j * nr + k
+			var tr : int = jn * nr + k
+			var bl : int = tl + 1
+			var br : int = tr + 1
+			indices.append_array(PackedInt32Array([tl, tr, bl, tr, br, bl]))
+
+	var mi := MeshInstance3D.new()
+	mi.name = "Apron"
+	mi.mesh = _arrays_to_mesh(verts, normals, colors, indices)
+	var mat := ShaderMaterial.new()
+	mat.shader = TERRAIN_SHADER
+	mi.material_override = mat
+	# It's large and distant; casting shadows would be costly and pointless.
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
 
 # ── Mesh ──────────────────────────────────────────────────────────────────────
 
@@ -1086,7 +1601,17 @@ func _build_mesh(data: Dictionary) -> ArrayMesh:
 			verts.append(Vector3(x, y, z))
 			normals.append(_calc_normal(heights, pts_x, pts_z, xi, zi))
 			var kind : String = _classify(x, z, spine, fhalf, green, water, sand)
-			colors.append(rough_col if kind == "rough" else _color_for(kind))
+			var col  : Color  = rough_col if kind == "rough" else _color_for(kind)
+			# Vertex-colour alpha is the terrain shader's surface flag: 0.0 = putting green
+			# (smooth, manicured), 0.5 = sand (the shader's grain/ripple branch), 1.0 = turf
+			# (the broad mottle). Kept as discrete sentinels the fragment shader buckets.
+			if kind == "green":
+				col.a = 0.0
+			elif kind == "sand":
+				col.a = 0.5
+			else:
+				col.a = 1.0
+			colors.append(col)
 
 	for zi in range(pts_z - 1):
 		for xi in range(pts_x - 1):
@@ -1101,7 +1626,13 @@ func _build_mesh(data: Dictionary) -> ArrayMesh:
 			var tr : int = tl + 1
 			var bl : int = tl + pts_x
 			var br : int = bl + 1
-			indices.append_array(PackedInt32Array([tl, bl, tr, tr, bl, br]))
+			# Wind the triangles so their front faces point UP (Godot treats clockwise-from-front
+			# as the front face). The earlier order put the front faces underneath, so with the
+			# material's CULL_DISABLED the camera saw back faces whose shading normal is flipped
+			# to -Y -- the whole terrain then took only ambient light and looked dim/flat while
+			# the separately-built pads (tee, cup collar) stayed correctly lit and conspicuously
+			# bright. This winding lights the surface the player actually sees.
+			indices.append_array(PackedInt32Array([tl, tr, bl, tr, br, bl]))
 
 	var arr := Array()
 	arr.resize(Mesh.ARRAY_MAX)
@@ -1145,6 +1676,8 @@ func _rough_color(biome: String) -> Color:
 	match biome:
 		"links":  return COL_ROUGH_LINKS
 		"fescue": return COL_ROUGH_FESCUE
+		"alpine": return COL_ROUGH_ALPINE
+		"autumn": return COL_ROUGH_AUTUMN
 		_:        return COL_ROUGH
 
 func _color_for(kind: String) -> Color:
@@ -1261,9 +1794,10 @@ func _make_cup_well(cx: float, cz: float, base_h: float) -> Node3D:
 	mi.mesh = mesh
 	var mat := StandardMaterial3D.new()
 	mat.vertex_color_use_as_albedo = true
-	mat.roughness         = 0.95
+	# Match the terrain detail shader's surface response (roughness 0.9, default specular) so
+	# the green collar reads as the same shade as the masked-flat green it sits in.
+	mat.roughness         = 0.9
 	mat.metallic          = 0.0
-	mat.metallic_specular = 0.1
 	mat.cull_mode         = BaseMaterial3D.CULL_DISABLED
 	mi.material_override  = mat
 	node.add_child(mi)
@@ -1290,26 +1824,44 @@ func _make_flag(cup_pos: Vector3) -> Node3D:
 	var node := Node3D.new()
 	node.name = "Flag"
 
+	# Pole drops all the way to the cup floor: cup_pos sits CUP_DEPTH*0.5 above the floor,
+	# so a base offset of -CUP_DEPTH*0.5 plants the pole on the floor with no floating gap.
+	var pole_h   : float = 3.8
 	var pole     := MeshInstance3D.new()
 	var pole_cyl := CylinderMesh.new()
-	pole_cyl.top_radius    = 0.04
-	pole_cyl.bottom_radius = 0.04
-	pole_cyl.height        = 3.2
+	pole_cyl.top_radius    = 0.05
+	pole_cyl.bottom_radius = 0.05
+	pole_cyl.height        = pole_h
 	pole.mesh     = pole_cyl
 	var pole_mat  := StandardMaterial3D.new()
 	pole_mat.albedo_color = Color(0.85, 0.85, 0.85)
 	pole.material_override = pole_mat
-	pole.position = cup_pos + Vector3(0.0, 1.6, 0.0)
+	pole.position = cup_pos + Vector3(0.0, -CUP_DEPTH * 0.5 + pole_h * 0.5, 0.0)
 	node.add_child(pole)
 
+	# Larger, fluttering flag. A subdivided plane (so it can ripple) anchored at the pole:
+	# its local +X runs out to the free edge, +Y is the cloth height. Rotated upright so the
+	# plane stands vertical, then shifted so the attached edge meets the pole near the top.
+	var flag_w   : float = 1.5
+	var flag_h   : float = 0.9
 	var flag     := MeshInstance3D.new()
-	var flag_box := BoxMesh.new()
-	flag_box.size = Vector3(1.0, 0.55, 0.04)
-	flag.mesh     = flag_box
-	var flag_mat  := StandardMaterial3D.new()
-	flag_mat.albedo_color = COL_FLAG
+	var flag_plane := PlaneMesh.new()
+	flag_plane.size           = Vector2(flag_w, flag_h)
+	flag_plane.subdivide_width = 10
+	flag_plane.subdivide_depth = 2
+	# PlaneMesh lies in XZ centred on origin; lift its local origin to the attached corner so
+	# X in [0, flag_w] is distance from the pole (the shader's flutter mask).
+	flag_plane.center_offset = Vector3(flag_w * 0.5, 0.0, flag_h * 0.5)
+	flag.mesh = flag_plane
+	var flag_mat := ShaderMaterial.new()
+	flag_mat.shader = FLAG_SHADER
+	flag_mat.set_shader_parameter("flag_color", Color(COL_FLAG.r, COL_FLAG.g, COL_FLAG.b))
 	flag.material_override = flag_mat
-	flag.position = cup_pos + Vector3(0.52, 2.95, 0.0)
+	# Stand the plane upright (XZ -> XY) so width runs along world X and height along world Y.
+	flag.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
+	# Attached edge against the pole, top of the cloth just below the pole top.
+	var pole_top : float = cup_pos.y - CUP_DEPTH * 0.5 + pole_h
+	flag.position = Vector3(cup_pos.x + 0.05, pole_top - flag_h - 0.12, cup_pos.z)
 	node.add_child(flag)
 
 	return node
@@ -1325,32 +1877,44 @@ func _make_tee_box(tee: Dictionary) -> Node3D:
 	var node := Node3D.new()
 	node.name = "TeeBox"
 
-	# Flat, slightly raised pad in a distinct mown colour.
+	# Mown collar skirt: a slightly larger, lower pad in the darker fringe tone that frames
+	# the tee (mirrors the collar around the green) and gives the pad a defined edge.
+	var collar     := MeshInstance3D.new()
+	var collar_box := BoxMesh.new()
+	collar_box.size = Vector3((TEE_HALF_W + 1.0) * 2.0, 0.10, (TEE_HALF_LEN + 1.0) * 2.0)
+	collar.mesh = collar_box
+	var collar_mat := StandardMaterial3D.new()
+	collar_mat.albedo_color = COL_FRINGE
+	collar_mat.roughness    = 0.95
+	collar.material_override = collar_mat
+	collar.position   = Vector3(center.x, pad_h + 0.03, center.y)
+	collar.rotation.y = ang
+	node.add_child(collar)
+
+	# Flat, neatly mown tee pad in a distinct lighter green, standing proud of the collar.
 	var pad     := MeshInstance3D.new()
 	var pad_box := BoxMesh.new()
-	pad_box.size = Vector3(TEE_HALF_W * 2.0, 0.08, TEE_HALF_LEN * 2.0)
+	pad_box.size = Vector3(TEE_HALF_W * 2.0, 0.10, TEE_HALF_LEN * 2.0)
 	pad.mesh     = pad_box
 	var pad_mat  := StandardMaterial3D.new()
 	pad_mat.albedo_color = COL_TEE
 	pad_mat.roughness    = 0.9
 	pad.material_override = pad_mat
-	pad.position    = Vector3(center.x, pad_h + 0.06, center.y)
+	pad.position    = Vector3(center.x, pad_h + 0.07, center.y)
 	pad.rotation.y  = ang
 	node.add_child(pad)
 
-	# Two tee markers flanking the ball, on the pad just ahead of the teeing line.
+	var pad_top : float = pad_h + 0.12   # mown surface the markers and sign stand on
+
+	# Two ball-on-post tee markers flanking the ball, just ahead of the teeing line.
 	var fwd : Vector2 = center + dir * (TEE_HALF_LEN * 0.25)
 	for s in [-1.0, 1.0]:
 		var m_pos : Vector2 = fwd + across * (TEE_HALF_W * 0.7) * s
-		var marker := MeshInstance3D.new()
-		var m_box  := BoxMesh.new()
-		m_box.size = Vector3(0.3, 0.3, 0.3)
-		marker.mesh = m_box
-		var m_mat := StandardMaterial3D.new()
-		m_mat.albedo_color = COL_TEE_MARK
-		marker.material_override = m_mat
-		marker.position = Vector3(m_pos.x, pad_h + 0.2, m_pos.y)
-		node.add_child(marker)
+		node.add_child(_make_tee_marker(Vector3(m_pos.x, pad_top, m_pos.y)))
+
+	# A low wooden tee sign at the back corner of the pad -- a small, realistic detail.
+	var sign_pos : Vector2 = center - dir * (TEE_HALF_LEN * 0.8) + across * (TEE_HALF_W * 0.85)
+	node.add_child(_make_tee_sign(Vector3(sign_pos.x, pad_top, sign_pos.y), ang))
 
 	# The tee peg the ball is teed up on (removed by hole_manager after the first stroke).
 	var peg     := MeshInstance3D.new()
@@ -1368,6 +1932,69 @@ func _make_tee_box(tee: Dictionary) -> Node3D:
 
 	return node
 
+# A classic "ball on a post" tee marker: a short tapered post capped with a sphere, in the
+# white marker colour. `pos` is the mown surface the post stands on.
+func _make_tee_marker(pos: Vector3) -> Node3D:
+	var m := Node3D.new()
+	m.position = pos
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = COL_TEE_MARK
+	mat.roughness    = 0.55
+
+	var post     := MeshInstance3D.new()
+	var post_cyl := CylinderMesh.new()
+	post_cyl.top_radius    = 0.11
+	post_cyl.bottom_radius = 0.14
+	post_cyl.height        = 0.22
+	post.mesh = post_cyl
+	post.material_override = mat
+	post.position = Vector3(0.0, 0.11, 0.0)
+	m.add_child(post)
+
+	var cap     := MeshInstance3D.new()
+	var cap_sph := SphereMesh.new()
+	cap_sph.radius = 0.16
+	cap_sph.height = 0.32
+	cap.mesh = cap_sph
+	cap.material_override = mat
+	cap.position = Vector3(0.0, 0.30, 0.0)
+	m.add_child(cap)
+	return m
+
+# A small wooden tee sign: a tapered post topped with an angled plaque board. `ang` aligns
+# it with the line of play; `pos` is the mown surface it stands on.
+func _make_tee_sign(pos: Vector3, ang: float) -> Node3D:
+	var s := Node3D.new()
+	s.position   = pos
+	s.rotation.y = ang
+
+	var wood := StandardMaterial3D.new()
+	wood.albedo_color = COL_PEG     # weathered wood, shared with the tee peg
+	wood.roughness    = 0.95
+
+	var post     := MeshInstance3D.new()
+	var post_cyl := CylinderMesh.new()
+	post_cyl.top_radius    = 0.05
+	post_cyl.bottom_radius = 0.06
+	post_cyl.height        = 0.95
+	post.mesh = post_cyl
+	post.material_override = wood
+	post.position = Vector3(0.0, 0.47, 0.0)
+	s.add_child(post)
+
+	var board     := MeshInstance3D.new()
+	var board_box := BoxMesh.new()
+	board_box.size = Vector3(0.72, 0.34, 0.05)
+	board.mesh = board_box
+	var board_mat := StandardMaterial3D.new()
+	board_mat.albedo_color = Color(0.16, 0.12, 0.08)   # dark stained board face
+	board_mat.roughness    = 0.9
+	board.material_override = board_mat
+	board.position   = Vector3(0.0, 0.92, 0.0)
+	board.rotation.x = deg_to_rad(18.0)
+	s.add_child(board)
+	return s
+
 # ── Vegetation node factories ─────────────────────────────────────────────────
 # Placements (from _build_vegetation) are grouped by type and drawn with one MultiMesh
 # each. Every base mesh is "ground-rooted" (local origin at the base, +Y up) so the wind
@@ -1379,16 +2006,26 @@ func _build_vegetation_nodes(data: Dictionary, parent: Node3D) -> void:
 	if veg.is_empty():
 		return
 
+	# Group by type AND the decorative flag: a tree type can have both in-bounds (collidable)
+	# and off-playfield decorative instances, and they need separate MultiMeshes so only the
+	# in-bounds ones get trunk colliders.
 	var groups : Dictionary = {}
 	for item: Dictionary in veg:
-		var t : String = item["type"]
-		if not groups.has(t):
-			groups[t] = []
-		groups[t].append(item)
+		var t    : String = item["type"]
+		var deco : bool   = item.get("decorative", false)
+		var key  : String = t + ("#bg" if deco else "")
+		if not groups.has(key):
+			groups[key] = {"type": t, "decorative": deco, "items": []}
+		groups[key]["items"].append(item)
 
-	var zl : float = float(data["pts_z"] - 1) * CELL
-	for t: String in groups.keys():
-		var items : Array = groups[t]
+	var zl  : float = float(data["pts_z"] - 1) * CELL
+	# Reach far enough to enclose the apron + perimeter trees so the block is never wrongly
+	# frustum-culled when the camera looks out toward the horizon.
+	var rad : float = TERRAIN_W * 0.5 + APRON_MARGIN
+	for key: String in groups.keys():
+		var t     : String = groups[key]["type"]
+		var deco  : bool   = groups[key]["decorative"]
+		var items : Array  = groups[key]["items"]
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.mesh             = _veg_mesh_for(t)
@@ -1399,19 +2036,19 @@ func _build_vegetation_nodes(data: Dictionary, parent: Node3D) -> void:
 			mm.set_instance_transform(i, Transform3D(b, it["pos"]))
 
 		var mmi := MultiMeshInstance3D.new()
-		mmi.name              = "Veg_" + t
+		mmi.name              = "Veg_" + key
 		mmi.multimesh         = mm
 		mmi.material_override  = _veg_material_for(t)
 		# Trees cast shadows; low grass/scrub don't (mobile cost, negligible visual loss).
-		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if t == "tree" \
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if _is_tree(t) \
 			else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		# Span the whole course so the instance block is never wrongly frustum-culled.
-		mmi.custom_aabb = AABB(Vector3(-TERRAIN_W, -12.0, -12.0), Vector3(TERRAIN_W * 2.0, 70.0, zl + 40.0))
+		mmi.custom_aabb = AABB(Vector3(-rad, -20.0, -APRON_MARGIN), Vector3(rad * 2.0, 90.0, zl + APRON_MARGIN * 2.0))
 		parent.add_child(mmi)
 
-		# Trees are solid: the ball must bounce off them, not pass through. Grass and scrub
-		# stay pass-through. One StaticBody3D carries a vertical trunk cylinder per tree.
-		if t == "tree":
+		# Trees are solid: the ball must bounce off them, not pass through. Grass/scrub stay
+		# pass-through, and decorative trees are off-playfield (the ball is reset out of bounds
+		# before reaching them), so only in-bounds trees get a trunk collider.
+		if _is_tree(t) and not deco:
 			parent.add_child(_make_tree_colliders(items))
 
 func _make_tree_colliders(items: Array) -> StaticBody3D:
@@ -1425,8 +2062,11 @@ func _make_tree_colliders(items: Array) -> StaticBody3D:
 	for it: Dictionary in items:
 		var sc  : float   = float(it["scale"])
 		var p   : Vector3 = it["pos"]
+		var tt  : String  = it["type"]
+		# Pines and slim trees have notably thinner trunks than the round broadleaf.
+		var rad_f : float = 0.28 if (tt == "pine" or tt == "tree_slim") else 0.42
 		var cyl := CylinderShape3D.new()
-		cyl.radius = 0.42 * sc
+		cyl.radius = rad_f * sc
 		cyl.height = 3.0 * sc
 		var col := CollisionShape3D.new()
 		col.shape    = cyl
@@ -1434,20 +2074,30 @@ func _make_tree_colliders(items: Array) -> StaticBody3D:
 		body.add_child(col)
 	return body
 
+# True for every solid, wind-swept tree variant (round, pine, slim, autumn hues). Drives
+# mesh choice, the wind material, shadow casting and trunk colliders alike.
+func _is_tree(t: String) -> bool:
+	return t == "tree" or t == "pine" or t == "tree_slim" or t.begins_with("tree_autumn")
+
 func _veg_mesh_for(t: String) -> ArrayMesh:
 	match t:
-		"tree":  return _make_tree_mesh()
-		"scrub": return _make_scrub_mesh()
-		_:       return _make_grass_mesh()
+		"tree":               return _make_tree_mesh()
+		"pine":               return _make_pine_mesh()
+		"tree_slim":          return _make_slim_tree_mesh()
+		"tree_autumn_orange": return _make_tree_mesh_tinted(Color(0.78, 0.42, 0.12))
+		"tree_autumn_red":    return _make_tree_mesh_tinted(Color(0.66, 0.20, 0.12))
+		"tree_autumn_gold":   return _make_tree_mesh_tinted(Color(0.80, 0.62, 0.16))
+		"scrub":              return _make_scrub_mesh()
+		_:                    return _make_grass_mesh()
 
 func _veg_material_for(t: String) -> Material:
+	if _is_tree(t):
+		var m := ShaderMaterial.new()
+		m.shader = WIND_SHADER
+		m.set_shader_parameter("wind_strength", 0.04)   # trees barely flex
+		m.set_shader_parameter("wind_speed", 1.1)
+		return m
 	match t:
-		"tree":
-			var m := ShaderMaterial.new()
-			m.shader = WIND_SHADER
-			m.set_shader_parameter("wind_strength", 0.04)   # trees barely flex
-			m.set_shader_parameter("wind_speed", 1.1)
-			return m
 		"scrub":
 			var sm := StandardMaterial3D.new()
 			sm.vertex_color_use_as_albedo = true
@@ -1486,9 +2136,13 @@ func _arrays_to_mesh(verts: PackedVector3Array, normals: PackedVector3Array, col
 	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 	return m
 
-# A low-poly tree: a tapered trunk (brown) topped by a spherical canopy (green), merged
-# into one mesh so a single MultiMesh covers a whole tree. Base sits at local y = 0.
+# A low-poly tree: a tapered trunk (brown) topped by a spherical canopy, merged into one
+# mesh so a single MultiMesh covers a whole tree. Base sits at local y = 0. The canopy
+# colour is a parameter so the autumn biome can reuse the shape in warm fall hues.
 func _make_tree_mesh() -> ArrayMesh:
+	return _make_tree_mesh_tinted(Color(0.18, 0.36, 0.17))
+
+func _make_tree_mesh_tinted(canopy_col: Color) -> ArrayMesh:
 	var trunk := CylinderMesh.new()
 	trunk.top_radius      = 0.12
 	trunk.bottom_radius   = 0.18
@@ -1508,7 +2162,62 @@ func _make_tree_mesh() -> ArrayMesh:
 	# Trunk centred at y=0 spans -0.8..0.8 -> lift 0.8 so its base is on the ground.
 	_append_prim(trunk,  0.8, Color(0.42, 0.30, 0.18), verts, normals, colors, indices)
 	# Canopy centre a touch above the trunk top (1.6), so it overlaps and reads as foliage.
-	_append_prim(canopy, 2.3, Color(0.20, 0.52, 0.20), verts, normals, colors, indices)
+	_append_prim(canopy, 2.3, canopy_col, verts, normals, colors, indices)
+	return _arrays_to_mesh(verts, normals, colors, indices)
+
+# A small upward cone (CylinderMesh with a zero-radius top), used to layer a conifer.
+func _cone(radius: float, height: float) -> CylinderMesh:
+	var c := CylinderMesh.new()
+	c.top_radius      = 0.0
+	c.bottom_radius   = radius
+	c.height          = height
+	c.radial_segments = 8
+	c.rings           = 1
+	return c
+
+# A conifer/pine: a short trunk topped by three overlapping cones, tall and narrow with a
+# dark blue-green needle colour. Base at local y = 0.
+func _make_pine_mesh() -> ArrayMesh:
+	var trunk := CylinderMesh.new()
+	trunk.top_radius      = 0.08
+	trunk.bottom_radius   = 0.13
+	trunk.height          = 1.2
+	trunk.radial_segments = 6
+	trunk.rings           = 1
+	var needle := Color(0.12, 0.30, 0.18)
+
+	var verts   := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var colors  := PackedColorArray()
+	var indices := PackedInt32Array()
+	_append_prim(trunk, 0.6, Color(0.34, 0.24, 0.15), verts, normals, colors, indices)
+	# Three stacked cones (centre = base + height*0.5), each narrower and higher.
+	_append_prim(_cone(1.10, 1.8), 1.9,  needle, verts, normals, colors, indices)
+	_append_prim(_cone(0.85, 1.5), 2.75, needle, verts, normals, colors, indices)
+	_append_prim(_cone(0.55, 1.3), 3.55, needle, verts, normals, colors, indices)
+	return _arrays_to_mesh(verts, normals, colors, indices)
+
+# A slim broadleaf (birch/poplar): a tall thin pale trunk with a narrow, tall canopy.
+# Base at local y = 0.
+func _make_slim_tree_mesh() -> ArrayMesh:
+	var trunk := CylinderMesh.new()
+	trunk.top_radius      = 0.07
+	trunk.bottom_radius   = 0.10
+	trunk.height          = 2.4
+	trunk.radial_segments = 6
+	trunk.rings           = 1
+	var canopy := SphereMesh.new()
+	canopy.radius          = 0.7
+	canopy.height          = 2.8
+	canopy.radial_segments = 8
+	canopy.rings           = 5
+
+	var verts   := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var colors  := PackedColorArray()
+	var indices := PackedInt32Array()
+	_append_prim(trunk,  1.2, Color(0.78, 0.78, 0.74), verts, normals, colors, indices)
+	_append_prim(canopy, 3.0, Color(0.22, 0.40, 0.20), verts, normals, colors, indices)
 	return _arrays_to_mesh(verts, normals, colors, indices)
 
 # A grass tuft: three thin triangular blades fanned around the base, dark at the root and
@@ -1518,8 +2227,8 @@ func _make_grass_mesh() -> ArrayMesh:
 	var normals := PackedVector3Array()
 	var colors  := PackedColorArray()
 	var indices := PackedInt32Array()
-	var base_col := Color(0.20, 0.34, 0.12)
-	var tip_col  := Color(0.56, 0.62, 0.30)
+	var base_col := Color(0.19, 0.28, 0.13)
+	var tip_col  := Color(0.44, 0.48, 0.27)
 	var h  : float = 1.2
 	var bw : float = 0.06   # half-width at the base
 	var blades : int = 3
@@ -1547,5 +2256,5 @@ func _make_scrub_mesh() -> ArrayMesh:
 	var colors  := PackedColorArray()
 	var indices := PackedInt32Array()
 	# Dome centred at y=0 spans -0.4..0.4 -> lift 0.4 so it sits on the ground.
-	_append_prim(dome, 0.4, Color(0.30, 0.40, 0.22), verts, normals, colors, indices)
+	_append_prim(dome, 0.4, Color(0.27, 0.34, 0.21), verts, normals, colors, indices)
 	return _arrays_to_mesh(verts, normals, colors, indices)

@@ -17,6 +17,8 @@ func load_save() -> void:
 	file.close()
 	data = parsed if parsed is Dictionary else _default_save()
 	_ensure_starter_items()
+	_ensure_loadout()
+	_ensure_shop()
 
 func _ensure_starter_items() -> void:
 	# Backfills clubs added after a save was already created, so existing
@@ -30,6 +32,34 @@ func _ensure_starter_items() -> void:
 	if changed:
 		data["inventory"] = inv
 		save()
+
+func _ensure_loadout() -> void:
+	# Older saves only stored a single "equipped.club"; the clubhouse uses a per-type
+	# loadout (driver/iron/wedge/putter). Backfill it from the owned defaults.
+	if data.get("loadout", null) is Dictionary and not (data["loadout"] as Dictionary).is_empty():
+		return
+	data["loadout"] = {
+		"driver": "driver_default",
+		"iron":   "iron_default",
+		"wedge":  "wedge_default",
+		"putter": "putter_default"
+	}
+	save()
+
+func _ensure_shop() -> void:
+	# Pro-shop / procedural-item state. Backfilled so older saves gain the new fields
+	# (generated item definitions live in the save, not the JSON data files).
+	if not (data.get("generated_clubs", null) is Dictionary):
+		data["generated_clubs"] = {}
+	if not (data.get("generated_balls", null) is Dictionary):
+		data["generated_balls"] = {}
+	if not (data.get("shop", null) is Dictionary):
+		data["shop"] = {"offerings": []}
+	elif not ((data["shop"] as Dictionary).get("offerings", null) is Array):
+		data["shop"]["offerings"] = []
+	if not (data.get("gen_counter", null) is float or data.get("gen_counter", null) is int):
+		data["gen_counter"] = 0
+	save()
 
 func save() -> void:
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -100,6 +130,12 @@ func _default_save() -> Dictionary:
 			"club": "driver_default",
 			"ball": "ball_default"
 		},
+		"loadout": {
+			"driver": "driver_default",
+			"iron":   "iron_default",
+			"wedge":  "wedge_default",
+			"putter": "putter_default"
+		},
 		"inventory": ["driver_default", "iron_default", "wedge_default", "putter_default", "ball_default"],
 		"stats": {
 			"rounds_played": 0,
@@ -111,5 +147,14 @@ func _default_save() -> Dictionary:
 			"hole_in_ones": 0
 		},
 		"current_round_seed": 0,
-		"current_hole": 1
+		"current_hole": 1,
+		"holes_per_round": 9,
+		"game_mode": "9",
+		"hole_scores": [],
+		"hole_pars": [],
+		"round_in_progress": false,
+		"generated_clubs": {},
+		"generated_balls": {},
+		"shop": {"offerings": []},
+		"gen_counter": 0
 	}

@@ -1,0 +1,192 @@
+[gd_scene format=3 uid="uid://ddnjpe8najwrb"]
+
+[ext_resource type="Script" path="res://scripts/main_menu.gd" id="1_menu"]
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_menu")
+
+[node name="Bg" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.11, 0.2, 0.14, 1)
+
+[node name="Heading" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -400.0
+offset_top = 80.0
+offset_right = 400.0
+offset_bottom = 180.0
+grow_horizontal = 2
+text = "BIRDIE BLITZ"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.95, 0.98, 0.85, 1)
+theme_override_font_sizes/font_size = 80
+
+[node name="MainPanel" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="VBox" type="VBoxContainer" parent="MainPanel"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -240.0
+offset_right = 200.0
+offset_bottom = 240.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 18
+
+[node name="ContinueButton" type="Button" parent="MainPanel/VBox"]
+custom_minimum_size = Vector2(400.0, 64.0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "CONTINUE"
+
+[node name="PlayButton" type="Button" parent="MainPanel/VBox"]
+custom_minimum_size = Vector2(400.0, 64.0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "PLAY"
+
+[node name="ClubhouseButton" type="Button" parent="MainPanel/VBox"]
+custom_minimum_size = Vector2(400.0, 64.0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "CLUBHOUSE"
+
+[node name="ProShopButton" type="Button" parent="MainPanel/VBox"]
+custom_minimum_size = Vector2(400.0, 64.0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "PRO SHOP"
+
+[node name="SettingsButton" type="Button" parent="MainPanel/VBox"]
+custom_minimum_size = Vector2(400.0, 64.0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "SETTINGS"
+
+[node name="ExitButton" type="Button" parent="MainPanel/VBox"]
+custom_minimum_size = Vector2(400.0, 64.0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "EXIT"
+
+[node name="PlayPanel" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="VBox" type="VBoxContainer" parent="PlayPanel"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -200.0
+offset_right = 200.0
+offset_bottom = 200.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 18
+
+[node name="PracticeButton" type="Button" parent="PlayPanel/VBox"]
+custom_minimum_size = Vector2(400.0, 64.0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "PRACTICE"
+
+[node name="NineButton" type="Button" parent="PlayPanel/VBox"]
+custom_minimum_size = Vector2(400.0, 64.0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "9 HOLES"
+
+[node name="EighteenButton" type="Button" parent="PlayPanel/VBox"]
+custom_minimum_size = Vector2(400.0, 64.0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "18 HOLES"
+
+[node name="TournamentButton" type="Button" parent="PlayPanel/VBox"]
+custom_minimum_size = Vector2(400.0, 64.0)
+layout_mode = 2
+disabled = true
+theme_override_font_sizes/font_size = 30
+text = "TOURNAMENT"
+
+[node name="BackButton" type="Button" parent="PlayPanel/VBox"]
+custom_minimum_size = Vector2(400.0, 64.0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "BACK"
+
+[node name="Placeholder" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="VBox" type="VBoxContainer" parent="Placeholder"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_top = -160.0
+offset_right = 260.0
+offset_bottom = 160.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 40
+alignment = 1
+
+[node name="Title" type="Label" parent="Placeholder/VBox"]
+layout_mode = 2
+text = "CLUBHOUSE"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.95, 0.98, 0.85, 1)
+theme_override_font_sizes/font_size = 56
+
+[node name="Note" type="Label" parent="Placeholder/VBox"]
+layout_mode = 2
+text = "Coming soon."
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.7, 0.82, 0.7, 1)
+theme_override_font_sizes/font_size = 28
+
+[node name="BackButton" type="Button" parent="Placeholder/VBox"]
+custom_minimum_size = Vector2(400.0, 64.0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "BACK TO MAIN MENU"
+
+[node name="ExitDialog" type="ConfirmationDialog" parent="."]
+title = "Exit"
+initial_position = 2
+size = Vector2i(420, 130)
+ok_button_text = "Quit"
+dialog_text = "Quit Birdie Blitz?"

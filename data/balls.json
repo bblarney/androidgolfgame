@@ -1,8 +1,9 @@
 {
   "ball_default": {
     "id": "ball_default",
-    "name": "Starter Ball",
+    "name": "Classic Ball",
     "rarity": "common",
+    "color": [0.95, 0.95, 0.95],
     "distance_modifier": 1.0,
     "air_resistance": 0.05,
     "roll_resistance": 2.8
@@ -11,6 +12,7 @@
     "id": "ball_range",
     "name": "Range Ball",
     "rarity": "common",
+    "color": [0.95, 0.84, 0.22],
     "distance_modifier": 0.82,
     "air_resistance": 0.10,
     "roll_resistance": 3.5
@@ -19,6 +21,7 @@
     "id": "ball_longrange",
     "name": "Long Range Ball",
     "rarity": "uncommon",
+    "color": [0.55, 0.74, 0.95],
     "distance_modifier": 1.22,
     "air_resistance": 0.03,
     "roll_resistance": 2.6
@@ -27,6 +30,7 @@
     "id": "ball_control",
     "name": "Control Ball",
     "rarity": "uncommon",
+    "color": [0.55, 0.85, 0.55],
     "distance_modifier": 0.92,
     "air_resistance": 0.06,
     "roll_resistance": 1.8
@@ -35,6 +39,7 @@
     "id": "ball_rocket",
     "name": "Rocket Ball",
     "rarity": "rare",
+    "color": [0.92, 0.36, 0.30],
     "distance_modifier": 1.42,
     "air_resistance": 0.02,
     "roll_resistance": 2.4
@@ -43,6 +48,7 @@
     "id": "ball_mythic",
     "name": "Mythic Ball",
     "rarity": "legendary",
+    "color": [0.72, 0.46, 0.92],
     "distance_modifier": 1.6,
     "air_resistance": 0.015,
     "roll_resistance": 1.6

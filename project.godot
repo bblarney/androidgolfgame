@@ -11,15 +11,16 @@ config_version=5
 [application]
 
 config/name="Birdie Blitz"
-run/main_scene="res://scenes/hole.tscn"
+run/main_scene="res://scenes/loading_screen.tscn"
 config/features=PackedStringArray("4.6", "Mobile")
-config/run/main_scene="res://scenes/hole.tscn"
+config/run/main_scene="res://scenes/loading_screen.tscn"
 
 [autoload]
 
 SaveManager="*res://autoloads/SaveManager.gd"
 EquipmentManager="*res://autoloads/EquipmentManager.gd"
 GameState="*res://autoloads/GameState.gd"
+SceneManager="*res://autoloads/SceneManager.gd"
 
 [display]
 
