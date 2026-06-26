@@ -1,7 +1,7 @@
 extends Control
 
 # Basic front-end menu. One scene with stacked panels toggled by visibility:
-#   MainPanel  - CONTINUE / PLAY / CLUBHOUSE / PRO SHOP / SETTINGS / EXIT
+#   MainPanel  - CONTINUE / PLAY / CLUBHOUSE / PRO SHOP / HOW TO PLAY / SETTINGS / EXIT
 #   PlayPanel  - PRACTICE / 9 HOLES / 18 HOLES / TOURNAMENT(disabled) / BACK
 #   Placeholder- reused for CLUBHOUSE / PRO SHOP / SETTINGS (title + BACK)
 # All exits (EXIT here, leaving a round in-game) are gated by an "Are you sure?" dialog.
@@ -23,6 +23,7 @@ func _ready() -> void:
 	$MainPanel/VBox/PlayButton.pressed.connect(func() -> void: _show_only(play_panel))
 	$MainPanel/VBox/ClubhouseButton.pressed.connect(func() -> void: SceneManager.goto(SceneManager.CLUBHOUSE))
 	$MainPanel/VBox/ProShopButton.pressed.connect(func() -> void: SceneManager.goto(SceneManager.PRO_SHOP))
+	$MainPanel/VBox/HowToPlayButton.pressed.connect(func() -> void: SceneManager.goto(SceneManager.TUTORIAL))
 	$MainPanel/VBox/SettingsButton.pressed.connect(func() -> void: _open_placeholder("SETTINGS"))
 	$MainPanel/VBox/ExitButton.pressed.connect(func() -> void: exit_dialog.popup_centered())
 

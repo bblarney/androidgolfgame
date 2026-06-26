@@ -10,6 +10,7 @@ const MAIN_MENU := "res://scenes/main_menu.tscn"
 const HOLE      := "res://scenes/hole.tscn"
 const CLUBHOUSE := "res://scenes/clubhouse.tscn"
 const PRO_SHOP  := "res://scenes/pro_shop.tscn"
+const TUTORIAL  := "res://scenes/tutorial.tscn"
 
 var target_scene: String = MAIN_MENU
 
