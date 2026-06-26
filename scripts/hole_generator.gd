@@ -43,8 +43,11 @@ const COL_FLAG     : Color = Color(0.82, 0.20, 0.18)
 # Biome-specific rough tints (parkland keeps the default lush COL_ROUGH).
 const COL_ROUGH_LINKS  : Color = Color(0.25, 0.29, 0.16)   # pale, dry seaside turf
 const COL_ROUGH_FESCUE : Color = Color(0.32, 0.32, 0.18)   # golden tall-grass rough
-const COL_ROUGH_ALPINE : Color = Color(0.14, 0.20, 0.14)   # cool grey-green high-country turf
+const COL_ROUGH_ALPINE : Color = Color(0.21, 0.28, 0.26)   # frost-touched blue-green high-country turf
 const COL_ROUGH_AUTUMN : Color = Color(0.30, 0.22, 0.10)   # warm golden-brown heather floor
+# Cold-mountain tint mixed into alpine's mown surfaces (fairway/green/fringe) so the whole
+# hole reads as high-country grass, not the lush lowland green shared by the other biomes.
+const COL_ALPINE_TINT  : Color = Color(0.34, 0.44, 0.42)
 
 # ── Cup well (unchanged machinery: a self-contained collar + walls + floor object
 #    dropped into the flat green pad). See _make_cup_well for the full rationale. ──
@@ -1312,10 +1315,11 @@ func _build_vegetation(heights: PackedFloat32Array, pts_x: int, pts_z: int, spin
 			_veg_scatter(out, "grass", 4400, 0.7, 1.3, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, z_max)
 			_veg_line_trees(out, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, 0.12, Vector2(3.0, 14.0), 1.0, 1.6, ["tree", "tree", "tree_slim"])
 		"alpine":
-			# High-country conifer forest: dense pine lines (the odd broadleaf) over a cool,
-			# grey-green floor with only sparse grass.
-			_veg_line_trees(out, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, 0.5, Vector2(2.0, 28.0), 1.0, 1.8, ["pine", "pine", "pine", "pine", "tree"])
-			_veg_scatter(out, "grass", 160, 0.3, 0.6, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, z_max)
+			# High-country evergreen forest: tall, dense pine lines (no broadleaf) over a cool,
+			# frosted floor with only sparse hardy grass. Slimmer band hugs the fairway tighter
+			# so the conifers crowd the corridor like a mountain pass.
+			_veg_line_trees(out, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, 0.6, Vector2(1.5, 24.0), 1.1, 2.1, ["pine"])
+			_veg_scatter(out, "grass", 120, 0.3, 0.6, heights, pts_x, pts_z, spine, fairway_half, green, water, sand, tee, z_max)
 		"autumn":
 			# Warm deciduous woodland: a dense gallery of round canopies in fall colours
 			# (orange/red/gold) with the occasional evergreen, over a moderate grass carpet.
@@ -1349,7 +1353,7 @@ func _bg_profile(biome: String) -> Dictionary:
 		"fescue":
 			return {"palette": ["tree", "tree_slim", "pine"], "rows": 1, "perim_density": 0.35, "scatter": 36, "rough_trees": 20, "smin": 1.0, "smax": 1.6}
 		"alpine":
-			return {"palette": ["pine", "pine", "pine", "tree"], "rows": 3, "perim_density": 0.85, "scatter": 110, "rough_trees": 90, "smin": 1.0, "smax": 1.9}
+			return {"palette": ["pine"], "rows": 4, "perim_density": 0.95, "scatter": 120, "rough_trees": 90, "smin": 1.1, "smax": 2.1}
 		"autumn":
 			return {"palette": ["tree_autumn_orange", "tree_autumn_red", "tree_autumn_gold", "pine"], "rows": 3, "perim_density": 0.8, "scatter": 100, "rough_trees": 90, "smin": 1.0, "smax": 1.8}
 		_:  # parkland
@@ -1678,7 +1682,8 @@ func _build_mesh(data: Dictionary) -> ArrayMesh:
 	var sand    : Array              = data["sand"]
 	var cup_x   : float              = data["cup_x_off"]
 	var cup_z_w : float              = data["cup_z_w"]
-	var rough_col : Color            = _rough_color(data.get("biome", "parkland"))
+	var biome   : String             = data.get("biome", "parkland")
+	var rough_col : Color            = _rough_color(biome)
 
 	var verts   := PackedVector3Array()
 	var normals := PackedVector3Array()
@@ -1693,7 +1698,7 @@ func _build_mesh(data: Dictionary) -> ArrayMesh:
 			verts.append(Vector3(x, y, z))
 			normals.append(_calc_normal(heights, pts_x, pts_z, xi, zi))
 			var kind : String = _classify(x, z, spine, fhalf, green, water, sand)
-			var col  : Color  = rough_col if kind == "rough" else _color_for(kind)
+			var col  : Color  = rough_col if kind == "rough" else _color_for(kind, biome)
 			# Vertex-colour alpha is the terrain shader's surface flag: 0.0 = putting green
 			# (smooth, manicured), 0.5 = sand (the shader's grain/ripple branch), 1.0 = turf
 			# (the broad mottle). Kept as discrete sentinels the fragment shader buckets.
@@ -1772,14 +1777,21 @@ func _rough_color(biome: String) -> Color:
 		"autumn": return COL_ROUGH_AUTUMN
 		_:        return COL_ROUGH
 
-func _color_for(kind: String) -> Color:
+func _color_for(kind: String, biome: String = "parkland") -> Color:
+	# Water/sand keep their global tone (a snowy bunker reads as odd, not alpine), and the
+	# putting green stays its lush manicured tone so the target still pops; only the broad
+	# turf (fairway/fringe) is cooled toward the high-country tint below.
+	var c : Color
 	match kind:
 		"water":   return COL_WATERBED
 		"sand":    return COL_SAND
 		"green":   return COL_GREEN
-		"fringe":  return COL_FRINGE
-		"fairway": return COL_FAIR
-		_:         return COL_ROUGH
+		"fringe":  c = COL_FRINGE
+		"fairway": c = COL_FAIR
+		_:         c = COL_ROUGH
+	if biome == "alpine":
+		c = c.lerp(COL_ALPINE_TINT, 0.35)
+	return c
 
 # Used by ball.gd for per-surface rolling friction.
 func get_surface_type(x: float, z: float, hole_data: Dictionary) -> String:

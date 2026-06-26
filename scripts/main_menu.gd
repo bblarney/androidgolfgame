@@ -1,10 +1,12 @@
 extends Control
 
 # Basic front-end menu. One scene with stacked panels toggled by visibility:
-#   MainPanel  - CONTINUE / PLAY / CLUBHOUSE / PRO SHOP / HOW TO PLAY / SETTINGS / EXIT
-#   PlayPanel  - PRACTICE / 9 HOLES / 18 HOLES / TOURNAMENT(disabled) / BACK
+#   MainPanel  - CONTINUE / PLAY NOW / TOURNAMENT / CLUBHOUSE / PRO SHOP / HOW TO PLAY / SETTINGS / EXIT
+#   PlayPanel  - PRACTICE / 9 HOLES / 18 HOLES / BACK
 #   Placeholder- reused for CLUBHOUSE / PRO SHOP / SETTINGS (title + BACK)
 # All exits (EXIT here, leaving a round in-game) are gated by an "Are you sure?" dialog.
+
+const UI = preload("res://scripts/ui_palette.gd")
 
 @onready var main_panel        : Control           = $MainPanel
 @onready var play_panel        : Control           = $PlayPanel
@@ -21,6 +23,7 @@ func _ready() -> void:
 	# Main panel
 	continue_button.pressed.connect(_on_continue)
 	$MainPanel/VBox/PlayButton.pressed.connect(func() -> void: _show_only(play_panel))
+	$MainPanel/VBox/TournamentButton.pressed.connect(func() -> void: SceneManager.goto(SceneManager.TOURNAMENT_HUB))
 	$MainPanel/VBox/ClubhouseButton.pressed.connect(func() -> void: SceneManager.goto(SceneManager.CLUBHOUSE))
 	$MainPanel/VBox/ProShopButton.pressed.connect(func() -> void: SceneManager.goto(SceneManager.PRO_SHOP))
 	$MainPanel/VBox/HowToPlayButton.pressed.connect(func() -> void: SceneManager.goto(SceneManager.TUTORIAL))
@@ -37,6 +40,16 @@ func _ready() -> void:
 	$Placeholder/VBox/BackButton.pressed.connect(func() -> void: _show_only(main_panel))
 
 	exit_dialog.confirmed.connect(func() -> void: get_tree().quit())
+
+	_style_buttons()
+
+# Give every menu button the shared broadcast pill look (translucent normally, gold when pressed)
+# in place of Godot's grey default.
+func _style_buttons() -> void:
+	for path in ["MainPanel/VBox", "PlayPanel/VBox", "Placeholder/VBox"]:
+		for child in get_node(path).get_children():
+			if child is Button:
+				UI.style_button(child, false)
 
 func _show_only(panel: Control) -> void:
 	main_panel.visible  = panel == main_panel

@@ -5,11 +5,13 @@ extends Control
 # built entirely in code (the .tscn only holds the bg), mirroring clubhouse.gd / pro_shop.gd.
 # Slides are pure data (SLIDES); _show_slide rebuilds the body for the current index.
 
-const TEXT     := Color(0.95, 0.98, 0.85)
-const SUBTEXT  := Color(0.7, 0.82, 0.7)
-const PANEL_BG := Color(0.13, 0.22, 0.17)
-const HILITE   := Color(0.92, 0.78, 0.30)
-const ACCENT   := Color(0.55, 0.82, 0.45)
+const UI = preload("res://scripts/ui_palette.gd")
+
+const TEXT     := UI.INK
+const SUBTEXT  := UI.SUBINK
+const PANEL_BG := UI.PANEL_SOLID
+const HILITE   := UI.ACCENT
+const ACCENT   := UI.METER
 
 # Each slide: title, a one-line intro, and a list of points. A point is either
 #   {"head": "...", "body": "..."}  -> bold label + description (feature lists)
@@ -133,6 +135,7 @@ func _build_ui() -> void:
 	skip.offset_top = 56.0
 	skip.offset_bottom = 108.0
 	skip.add_theme_font_size_override("font_size", 24)
+	UI.style_button(skip, false)
 	skip.pressed.connect(_exit)
 	add_child(skip)
 
@@ -149,7 +152,7 @@ func _build_ui() -> void:
 	box.bg_color = PANEL_BG
 	box.set_corner_radius_all(14)
 	box.set_border_width_all(2)
-	box.border_color = Color(0.2, 0.32, 0.24)
+	box.border_color = UI.EDGE
 	box.content_margin_left = 48.0
 	box.content_margin_right = 48.0
 	box.content_margin_top = 40.0
@@ -175,6 +178,7 @@ func _build_ui() -> void:
 	back_button.text = "BACK"
 	back_button.custom_minimum_size = Vector2(220.0, 60.0)
 	back_button.add_theme_font_size_override("font_size", 26)
+	UI.style_button(back_button, false)
 	back_button.pressed.connect(_prev)
 	nav.add_child(back_button)
 
@@ -194,6 +198,7 @@ func _build_ui() -> void:
 	next_button = Button.new()
 	next_button.custom_minimum_size = Vector2(220.0, 60.0)
 	next_button.add_theme_font_size_override("font_size", 26)
+	UI.style_button(next_button, true)
 	next_button.pressed.connect(_next)
 	nav.add_child(next_button)
 

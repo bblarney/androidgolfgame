@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://scripts/hole_manager.gd" id="1_manager"]
 [ext_resource type="Script" path="res://scripts/ball.gd" id="2_ball"]
@@ -9,6 +9,7 @@
 [ext_resource type="Script" path="res://scripts/scorecard.gd" id="7_scorecard"]
 [ext_resource type="Script" path="res://scripts/club_selector.gd" id="8_clubsel"]
 [ext_resource type="Script" path="res://scripts/scorebug.gd" id="9_scorebug"]
+[ext_resource type="Script" path="res://scripts/tournament_scorebug.gd" id="10_tscore"]
 
 [sub_resource type="SphereShape3D" id="1_bshape"]
 radius = 0.117
@@ -82,86 +83,101 @@ fov = 65.0
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="StrokeLabel" type="Label" parent="HUD"]
+[node name="TopStrip" type="VBoxContainer" parent="HUD"]
 offset_left = 24.0
-offset_top = 24.0
-offset_right = 340.0
-offset_bottom = 68.0
-text = "Strokes: 0"
-theme_override_font_sizes/font_size = 32
+offset_top = 20.0
+offset_right = 420.0
+offset_bottom = 74.0
+theme_override_constants/separation = 5
 
-[node name="ParLabel" type="Label" parent="HUD"]
-offset_left = 24.0
-offset_top = 74.0
-offset_right = 340.0
-offset_bottom = 118.0
-text = "Par 4"
-theme_override_font_sizes/font_size = 32
-
-[node name="HoleLabel" type="Label" parent="HUD"]
-offset_left = 24.0
-offset_top = 124.0
-offset_right = 440.0
-offset_bottom = 168.0
-text = "Hole 1 / 9"
-theme_override_font_sizes/font_size = 32
-
-[node name="PointsLabel" type="Label" parent="HUD"]
-offset_left = 24.0
-offset_top = 174.0
-offset_right = 340.0
-offset_bottom = 218.0
-text = "0 pts"
-theme_override_font_sizes/font_size = 28
-
-[node name="LieLabel" type="Label" parent="HUD"]
-layout_mode = 1
-anchors_preset = 6
-anchor_left = 1.0
-anchor_top = 0.5
-anchor_right = 1.0
-anchor_bottom = 0.5
-offset_left = -260.0
-offset_top = -186.0
-offset_right = -20.0
-offset_bottom = -138.0
-grow_horizontal = 0
-text = "Lie: Tee"
-horizontal_alignment = 2
-theme_override_colors/font_outline_color = Color(0.0, 0.05, 0.02, 1)
-theme_override_constants/outline_size = 5
+[node name="HoleParLabel" type="Label" parent="HUD/TopStrip"]
+layout_mode = 2
+text = "HOLE 1 / 9   ·   PAR 4"
+theme_override_colors/font_color = Color(0.95, 0.98, 0.85, 1)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 2
+theme_override_colors/font_shadow_color = Color(0.0, 0.0, 0.0, 0.5)
 theme_override_font_sizes/font_size = 30
 
-[node name="HazardLabel" type="Label" parent="HUD"]
-visible = false
+[node name="AccentRule" type="ColorRect" parent="HUD/TopStrip"]
+custom_minimum_size = Vector2(170.0, 3.0)
+layout_mode = 2
+size_flags_horizontal = 0
+color = Color(1.0, 0.85, 0.25, 1)
+
+[node name="InfoCard" type="PanelContainer" parent="HUD"]
 layout_mode = 1
-anchors_preset = 5
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -140.0
+offset_right = 306.0
+offset_bottom = -24.0
+grow_vertical = 0
+
+[node name="VBox" type="VBoxContainer" parent="HUD/InfoCard"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="StrokeLabel" type="Label" parent="HUD/InfoCard/VBox"]
+layout_mode = 2
+text = "STROKES  0"
+theme_override_colors/font_color = Color(0.95, 0.98, 0.85, 1)
+theme_override_font_sizes/font_size = 34
+
+[node name="Line2" type="HBoxContainer" parent="HUD/InfoCard/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="LieLabel" type="Label" parent="HUD/InfoCard/VBox/Line2"]
+layout_mode = 2
+text = "Tee"
+theme_override_font_sizes/font_size = 22
+
+[node name="Dot" type="Label" parent="HUD/InfoCard/VBox/Line2"]
+layout_mode = 2
+text = "·"
+theme_override_colors/font_color = Color(0.70, 0.80, 0.68, 1)
+theme_override_font_sizes/font_size = 22
+
+[node name="PointsLabel" type="Label" parent="HUD/InfoCard/VBox/Line2"]
+layout_mode = 2
+text = "0 pts"
+theme_override_colors/font_color = Color(0.70, 0.80, 0.68, 1)
+theme_override_font_sizes/font_size = 22
+
+[node name="HazardBanner" type="PanelContainer" parent="HUD"]
+visible = false
+modulate = Color(1.0, 1.0, 1.0, 0.0)
+layout_mode = 1
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -320.0
-offset_top = 200.0
-offset_right = 320.0
-offset_bottom = 268.0
+offset_left = -230.0
+offset_top = 150.0
+offset_right = 230.0
+offset_bottom = 214.0
 grow_horizontal = 2
+
+[node name="HazardLabel" type="Label" parent="HUD/HazardBanner"]
+layout_mode = 2
 horizontal_alignment = 1
-text = "Water Hazard  +1"
+vertical_alignment = 1
+text = "WATER HAZARD   +1"
 theme_override_colors/font_color = Color(0.55, 0.82, 1.0, 1)
-theme_override_colors/font_outline_color = Color(0.0, 0.05, 0.12, 1)
-theme_override_constants/outline_size = 8
-theme_override_font_sizes/font_size = 48
+theme_override_font_sizes/font_size = 40
 
 [node name="ExitButton" type="Button" parent="HUD"]
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -132.0
-offset_top = 24.0
+offset_left = -108.0
+offset_top = 20.0
 offset_right = -24.0
-offset_bottom = 72.0
+offset_bottom = 62.0
 grow_horizontal = 0
-theme_override_font_sizes/font_size = 26
-text = "Exit"
+theme_override_font_sizes/font_size = 22
+text = "EXIT"
 
 [node name="ExitDialog" type="ConfirmationDialog" parent="HUD"]
 title = "Leave Round"
@@ -177,6 +193,23 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 script = ExtResource("6_aim")
+
+[node name="TournamentScorebug" type="Control" parent="HUD"]
+visible = false
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -320.0
+offset_top = -250.0
+offset_right = -20.0
+offset_bottom = -20.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+script = ExtResource("10_tscore")
 
 [node name="ClubBar" type="VBoxContainer" parent="HUD"]
 layout_mode = 1

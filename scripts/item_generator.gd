@@ -18,16 +18,26 @@ const BOX_PRICE := 1500
 
 # Per-rarity "quality" window. q in [0,1] biases power up toward the per-type cap and tightens
 # spread. The windows OVERLAP on purpose: a lucky common can out-roll a poor uncommon (e.g. an
-# iron that flirts with driver power), but can never reach a legendary's ceiling.
+# iron that flirts with driver power), but can never reach a legendary's ceiling. "mythic" is the
+# tournament-only top tier (see the MYTHIC_* boost below); it never rolls in the shop.
 const QUALITY := {
 	"common":    [0.00, 0.45],
 	"uncommon":  [0.25, 0.65],
 	"rare":      [0.50, 0.85],
 	"legendary": [0.75, 1.00],
+	"mythic":    [1.00, 1.00],
 }
 
-# Club type pick weights (putters are mostly functional, so they show up less).
-const CLUB_TYPE_WEIGHTS := {"driver": 28, "iron": 30, "wedge": 30, "putter": 12}
+# Tournament-only "Mythic" tier, awarded for winning a tournament and never sold. Its key stats
+# are forced past the per-type legendary ceiling so a Mythic always out-rolls anything the shop
+# can offer.
+const MYTHIC_POWER_MULT  := 1.15   # club power, as a multiple of the type's hard cap
+const MYTHIC_SPREAD_MULT := 0.6    # club spread, tighter than the tightest legendary
+
+# Club type pick weights (putters are mostly functional, so they show up less). The no-putter
+# variant is used for Mythic prizes so the headline reward always swings for distance.
+const CLUB_TYPE_WEIGHTS           := {"driver": 28, "iron": 30, "wedge": 30, "putter": 12}
+const CLUB_TYPE_WEIGHTS_NO_PUTTER := {"driver": 28, "iron": 30, "wedge": 30}
 
 # Per-type stat baselines. power: [lo, hi] base roll, lifted toward `cap` by quality -- `cap`
 # is the hard ceiling (a wedge can never reach driver power; a lucky iron can graze it).
@@ -46,6 +56,7 @@ const CLUB_ADJ := {
 	"uncommon":  ["Tuned", "Balanced", "Crafted", "Swift", "Keen"],
 	"rare":      ["Blazing", "Precision", "Tour", "Vortex", "Eclipse"],
 	"legendary": ["Mythic", "Ascendant", "Celestial", "Phoenix", "Sovereign"],
+	"mythic":    ["Excalibur", "Worldbreaker", "Olympian", "Apex", "Zenith"],
 }
 
 # Ball archetypes -- each is a coherent playstyle. `sig` is the signature stat that rarity
@@ -59,10 +70,19 @@ const BALL_ARCHETYPES := [
 	{"name": "Balanced", "weight": 25, "dist": [0.95, 1.10], "air": [0.04, 0.06],  "roll": [2.2, 2.8], "bsmod": [0.9, 1.1], "bsadd": [0.0, 0.0],  "sig": "dist",  "hue": [0.10, 0.16], "sat": [0.0, 0.12], "adj": ["Tour", "Classic", "Standard", "Pro"]},
 ]
 
-const RARITY_PREFIX := {"rare": "Tour", "legendary": "Mythic"}
+const RARITY_PREFIX := {"rare": "Tour", "legendary": "Mythic", "mythic": "Mythic"}
 
 
 # --- Public API -------------------------------------------------------------
+
+# Tournament prizes. A Mythic is a notch above legendary on the stats that matter, and excludes
+# putters so the reward always swings big.
+static func generate_mythic_club() -> Dictionary:
+	return generate_club("mythic", false)
+
+static func generate_mythic_ball() -> Dictionary:
+	return generate_ball("mythic")
+
 
 static func roll_rarity(weights: Array) -> String:
 	var total: int = 0
@@ -84,8 +104,8 @@ static func next_id(prefix: String) -> String:
 	return "%s_%d" % [prefix, n]
 
 
-static func generate_club(rarity: String) -> Dictionary:
-	var type: String = _weighted_key(CLUB_TYPE_WEIGHTS)
+static func generate_club(rarity: String, allow_putter: bool = true) -> Dictionary:
+	var type: String = _weighted_key(CLUB_TYPE_WEIGHTS if allow_putter else CLUB_TYPE_WEIGHTS_NO_PUTTER)
 	var base: Dictionary = CLUB_BASE[type]
 	var q: float = _quality(rarity)
 
@@ -101,6 +121,13 @@ static func generate_club(rarity: String) -> Dictionary:
 	var launch: float = randf_range(base["launch"][0], base["launch"][1])
 	var bst: float = clampf(randf() * 0.6 + q * 0.5, 0.0, 1.0)
 	var backspin: float = lerp(base["backspin"][0], base["backspin"][1], bst)
+
+	# Mythic forces power past the type's hard cap and spread below the legendary band, so the
+	# prize is unmistakably stronger than anything the shop sells.
+	if rarity == "mythic":
+		power = base["cap"] * MYTHIC_POWER_MULT
+		spread = base["spread"][1] * MYTHIC_SPREAD_MULT
+		backspin = base["backspin"][1]
 
 	var colors: Dictionary = _club_colors()
 	var def := {
@@ -140,6 +167,13 @@ static func generate_ball(rarity: String) -> Dictionary:
 			bsadd = lerp(bsadd, arch["bsadd"][1], q * 0.8)
 		"roll":
 			roll = lerp(roll, arch["roll"][0], q * 0.8)
+
+	# Mythic pushes every "good" direction past its archetype band: more carry, less drag, and a
+	# touch more bite, so the prize plays a class above the shop's legendaries.
+	if rarity == "mythic":
+		dist = maxf(dist, arch["dist"][1]) * 1.08
+		air = minf(air, arch["air"][0]) * 0.85
+		bsmod = maxf(bsmod, arch["bsmod"][1])
 
 	var hue: float = randf_range(arch["hue"][0], arch["hue"][1])
 	var sat: float = randf_range(arch["sat"][0], arch["sat"][1])

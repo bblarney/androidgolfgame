@@ -62,7 +62,13 @@ text = "CONTINUE"
 custom_minimum_size = Vector2(400.0, 64.0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
-text = "PLAY"
+text = "PLAY NOW"
+
+[node name="TournamentButton" type="Button" parent="MainPanel/VBox"]
+custom_minimum_size = Vector2(400.0, 64.0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "TOURNAMENT"
 
 [node name="ClubhouseButton" type="Button" parent="MainPanel/VBox"]
 custom_minimum_size = Vector2(400.0, 64.0)
@@ -133,13 +139,6 @@ custom_minimum_size = Vector2(400.0, 64.0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
 text = "18 HOLES"
-
-[node name="TournamentButton" type="Button" parent="PlayPanel/VBox"]
-custom_minimum_size = Vector2(400.0, 64.0)
-layout_mode = 2
-disabled = true
-theme_override_font_sizes/font_size = 30
-text = "TOURNAMENT"
 
 [node name="BackButton" type="Button" parent="PlayPanel/VBox"]
 custom_minimum_size = Vector2(400.0, 64.0)

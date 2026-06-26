@@ -3,6 +3,7 @@ extends Node
 signal hole_complete(strokes: int, par: int, points_earned: int)
 
 const ClubVisual = preload("res://scripts/club_visual.gd")
+const UI = preload("res://scripts/ui_palette.gd")
 
 @onready var ball          : RigidBody3D = $"../Ball"
 @onready var cup           : Area3D      = $"../Cup"
@@ -11,22 +12,30 @@ const ClubVisual = preload("res://scripts/club_visual.gd")
 @onready var aim_indicator : Control     = $"../HUD/AimIndicator"
 @onready var input_handler : Node        = $"../InputHandler"
 @onready var hole_gen      : Node        = $"../HoleGenerator"
-@onready var lbl_strokes   : Label       = $"../HUD/StrokeLabel"
-@onready var lbl_par       : Label       = $"../HUD/ParLabel"
-@onready var lbl_hole      : Label       = $"../HUD/HoleLabel"
-@onready var lbl_points    : Label       = $"../HUD/PointsLabel"
-@onready var lbl_hazard    : Label       = $"../HUD/HazardLabel"
-@onready var lbl_lie        : Label       = $"../HUD/LieLabel"
+@onready var lbl_strokes   : Label         = $"../HUD/InfoCard/VBox/StrokeLabel"
+@onready var lbl_holepar   : Label         = $"../HUD/TopStrip/HoleParLabel"
+@onready var lbl_points    : Label         = $"../HUD/InfoCard/VBox/Line2/PointsLabel"
+@onready var lbl_hazard    : Label         = $"../HUD/HazardBanner/HazardLabel"
+@onready var lbl_lie       : Label         = $"../HUD/InfoCard/VBox/Line2/LieLabel"
+@onready var info_card     : PanelContainer = $"../HUD/InfoCard"
+@onready var hazard_banner : PanelContainer = $"../HUD/HazardBanner"
+@onready var top_strip     : Control       = $"../HUD/TopStrip"
 @onready var scorecard     : Control     = $"../HUD/ScoreCard"
+@onready var tourney_bug    : Control     = $"../HUD/TournamentScorebug"
 @onready var exit_button   : Button      = $"../HUD/ExitButton"
 @onready var exit_dialog   : ConfirmationDialog = $"../HUD/ExitDialog"
 
 var stroke_count     : int  = 0
+# Last strokes value shown in the HUD, so _update_hud only plays the count-up pop on a real
+# increment (not on the reset to 0 that opens each hole).
+var _last_strokes_shown : int = 0
 var par              : int  = 4
 var is_active        : bool = false
 var _hole_data       : Dictionary = {}
 var _penalty_active  : bool = false
 var club             : Node3D
+# The shared Environment, kept so per-hole code can retune the haze for the current biome.
+var _env             : Environment
 
 func _ready() -> void:
 	_setup_environment()
@@ -37,8 +46,16 @@ func _ready() -> void:
 	# Deferred for the same reason as the environment nodes below: the parent is mid
 	# child-setup during _ready, so a direct add_child() is blocked.
 	get_parent().add_child.call_deferred(club)
+	_style_hud()
 	_connect_signals()
 	_start_hole()
+
+# Apply the shared broadcast styling to the HUD chrome once. The translucent cards and pill
+# button come from UiPalette so every overlay element reads as one cohesive layer.
+func _style_hud() -> void:
+	info_card.add_theme_stylebox_override("panel", UI.card_style(4.0))
+	hazard_banner.add_theme_stylebox_override("panel", UI.card_style())
+	UI.style_button(exit_button, false)
 
 func _setup_environment() -> void:
 	# A hand-written sky shader (res://shaders/sky.gdshader): vertical gradient + glowing
@@ -92,6 +109,7 @@ func _setup_environment() -> void:
 	env.fog_depth_end          = 220.0
 	env.fog_sky_affect         = 0.3
 	env.fog_aerial_perspective = 0.6
+	_env = env   # retuned per hole by _apply_biome_atmosphere
 	env_node.environment = env
 	# _ready runs while our parent is still setting up its own children, so a direct
 	# add_child() on it is blocked ("parent node is busy"). Defer until that pass ends.
@@ -129,6 +147,21 @@ func _setup_environment() -> void:
 	var sun_basis := Basis.from_euler(sun.rotation)
 	sky_mat.set_shader_parameter("sun_direction", sun_basis.z)
 
+# Retune the depth haze for the current biome. Alpine reads as thin, cold mountain air: a
+# paler blue-white fog that begins closer and washes the distance out sooner than the default
+# lowland haze, so the far peaks dissolve into a cold sky. Every other biome uses the default.
+func _apply_biome_atmosphere(biome: String) -> void:
+	if _env == null:
+		return
+	if biome == "alpine":
+		_env.fog_light_color = Color(0.82, 0.88, 0.95)
+		_env.fog_depth_begin = 55.0
+		_env.fog_depth_end   = 190.0
+	else:
+		_env.fog_light_color = Color(0.66, 0.83, 0.95)
+		_env.fog_depth_begin = 70.0
+		_env.fog_depth_end   = 220.0
+
 func _connect_signals() -> void:
 	ball.ball_resting.connect(_on_ball_resting)
 	ball.entered_hazard.connect(_on_hazard)
@@ -143,8 +176,13 @@ func _connect_signals() -> void:
 	exit_dialog.confirmed.connect(_on_exit_confirmed)
 
 func _on_exit_confirmed() -> void:
-	# Save wherever the round stands so the menu's CONTINUE can pick it back up, then route
-	# home through the loading screen.
+	# Save wherever the round stands so CONTINUE can pick it back up, then route home through the
+	# loading screen. A tournament day is stashed in its own slot (so a later casual round can't
+	# clobber it) and returns the player to the hub instead of the main menu.
+	if GameState.game_mode == "tournament":
+		TournamentManager.save_round_snapshot()
+		SceneManager.goto(SceneManager.TOURNAMENT_HUB)
+		return
 	GameState.save_progress()
 	SceneManager.goto(SceneManager.MAIN_MENU)
 
@@ -153,6 +191,7 @@ func _start_hole() -> void:
 		child.queue_free()
 
 	_hole_data   = hole_gen.generate_hole(GameState.get_hole_seed(), GameState.get_hole_biome())
+	_apply_biome_atmosphere(_hole_data.get("biome", "parkland"))
 	hole_gen.build_terrain(_hole_data, course)
 
 	par          = _hole_data["par"]
@@ -188,6 +227,12 @@ func _start_hole() -> void:
 	# Water and sand are both carved terrain now, detected by ball position each frame
 	# (water via hole_gen.water_at, sand via get_surface_type) -- no Area3D wiring needed.
 	_update_hud()
+	_intro_hud()
+	# The live field leaderboard only exists in tournament play; refresh it to the resumed/
+	# carried standings as each hole opens.
+	tourney_bug.visible = GameState.game_mode == "tournament"
+	if tourney_bug.visible:
+		tourney_bug.refresh()
 	camera.setup(ball, _hole_data)
 	input_handler.setup(ball, camera)
 
@@ -254,10 +299,15 @@ func _trigger_water_penalty() -> void:
 	_update_hud()
 	# The ball has already settled in the basin (water is judged at rest now); hold the
 	# penalty message on it where it lies, then replay from where the shot was struck.
-	lbl_hazard.text    = "Water Hazard  +1"
-	lbl_hazard.visible = true
+	lbl_hazard.text = "WATER HAZARD   +1"
+	hazard_banner.visible = true
+	var tin := create_tween()
+	tin.tween_property(hazard_banner, "modulate:a", 1.0, 0.25)
 	await get_tree().create_timer(2.5).timeout
-	lbl_hazard.visible = false
+	# Fade out without blocking the replay below, so the ball re-tees on the same cadence as before.
+	var tout := create_tween()
+	tout.tween_property(hazard_banner, "modulate:a", 0.0, 0.3)
+	tout.tween_callback(func() -> void: hazard_banner.visible = false)
 	ball.reset_to_shot_start()
 	_refresh_tee_peg()
 	# See _trigger_penalty: reposition the club onto the replayed ball so it isn't left
@@ -293,20 +343,37 @@ func _on_cup_entered(body: Node) -> void:
 	GameState.record_hole(stroke_count, par)
 	hole_complete.emit(stroke_count, par, points)
 
+	var tournament : bool = GameState.game_mode == "tournament"
+	if tournament:
+		# Simulate the field's score on this hole, then refresh the live leaderboard.
+		TournamentManager.record_player_hole(par)
+		tourney_bug.refresh()
+
 	var round_done : bool = GameState.is_round_complete()
 	if round_done:
-		# Record the round's stats (rounds_played / best_round_score) -- previously never wired
-		# up -- then clear the in-progress flag so CONTINUE no longer offers this round.
-		SaveManager.record_round_complete(GameState.get_total_strokes(), GameState.get_total_par())
-		GameState.clear_round()
+		if tournament:
+			# Fold the day into the running totals; the cut is applied later in the hub. Also
+			# clear the casual in-progress flag so the main menu's CONTINUE doesn't offer this
+			# finished day (the tournament keeps its own round slot for resuming mid-play).
+			TournamentManager.finish_day()
+			GameState.clear_round()
+		else:
+			# Record the round's stats (rounds_played / best_round_score) -- previously never
+			# wired up -- then clear the in-progress flag so CONTINUE no longer offers it.
+			SaveManager.record_round_complete(GameState.get_total_strokes(), GameState.get_total_par())
+			GameState.clear_round()
 	scorecard.show_hole_result(hole_num, stroke_count, par, points, round_done, GameState.get_score_vs_par(), GameState.get_total_strokes())
 
 func _on_next_pressed() -> void:
 	scorecard.visible = false
-	# A finished 9/18 round returns to the menu; practice (never "complete") and mid-round
-	# holes just advance to the next hole.
+	# A finished 9/18 round returns to the menu; a finished tournament day returns to the hub
+	# (which shows the leaderboard + cut). Practice (never "complete") and mid-round holes just
+	# advance to the next hole.
 	if GameState.is_round_complete():
-		SceneManager.goto(SceneManager.MAIN_MENU)
+		if GameState.game_mode == "tournament":
+			SceneManager.goto(SceneManager.TOURNAMENT_HUB)
+		else:
+			SceneManager.goto(SceneManager.MAIN_MENU)
 		return
 	_start_hole()
 
@@ -361,26 +428,39 @@ func _update_lie() -> void:
 	var surface : String  = hole_gen.get_surface_type(pos.x, pos.z, _hole_data)
 	var teed_up : bool    = pos.distance_to(_hole_data.get("tee_position", Vector3.ONE * 9999.0)) < 1.0
 
-	var label : String
-	var color : Color
-	if teed_up:
-		label = "Tee";     color = Color(0.85, 0.95, 0.80)
-	else:
-		match surface:
-			"green":   label = "Green";   color = Color(0.55, 1.00, 0.55)
-			"fairway": label = "Fairway"; color = Color(0.70, 0.92, 0.55)
-			"sand":    label = "Sand";    color = Color(0.95, 0.86, 0.55)
-			_:         label = "Rough";   color = Color(0.55, 0.72, 0.38)
-
-	lbl_lie.text = "Lie: %s" % label
-	lbl_lie.add_theme_color_override("font_color", color)
+	# Tee is reported as fairway by the surface query, so flag it separately for the lie colour.
+	var lie_key  : String = "tee" if teed_up else surface
+	var lie_name : String = lie_key.capitalize() if UI.LIE_COLORS.has(lie_key) else "Rough"
+	lbl_lie.text = lie_name
+	lbl_lie.add_theme_color_override("font_color", UI.lie_color(lie_key))
 
 func _update_hud() -> void:
-	lbl_strokes.text = "Strokes: %d" % stroke_count
-	lbl_par.text     = "Par %d" % par
+	lbl_strokes.text = "STROKES  %d" % stroke_count
+	if stroke_count > _last_strokes_shown:
+		_pop_label(lbl_strokes)
+	_last_strokes_shown = stroke_count
 	if GameState.game_mode == "practice":
-		lbl_hole.text   = "Practice - Hole %d" % GameState.current_hole
-		lbl_points.text = "Practice"
+		lbl_holepar.text = "PRACTICE  ·  HOLE %d  ·  PAR %d" % [GameState.current_hole, par]
+		lbl_points.text  = "Practice"
+	elif GameState.game_mode == "tournament":
+		# Tournaments earn no points; the points line carries the day name instead.
+		lbl_holepar.text = "HOLE %d / %d  ·  PAR %d" % [GameState.current_hole, GameState.holes_per_round, par]
+		lbl_points.text  = TournamentManager.day_name()
 	else:
-		lbl_hole.text   = "Hole %d / %d" % [GameState.current_hole, GameState.holes_per_round]
-		lbl_points.text = "%d pts" % SaveManager.data.get("points", 0)
+		lbl_holepar.text = "HOLE %d / %d  ·  PAR %d" % [GameState.current_hole, GameState.holes_per_round, par]
+		lbl_points.text  = "%d pts" % SaveManager.data.get("points", 0)
+
+# Soft fade-in of the HUD chrome as each hole opens, so it doesn't snap into place.
+func _intro_hud() -> void:
+	for n : CanvasItem in [top_strip, info_card]:
+		n.modulate.a = 0.0
+		var tw := create_tween()
+		tw.tween_interval(0.05)
+		tw.tween_property(n, "modulate:a", 1.0, 0.35).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+# Quick scale-pop used when a value changes (e.g. stroke count ticks up) for a bit of life.
+func _pop_label(node: Control) -> void:
+	node.pivot_offset = node.size * 0.5
+	node.scale = Vector2(1.18, 1.18)
+	var tw := create_tween()
+	tw.tween_property(node, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)

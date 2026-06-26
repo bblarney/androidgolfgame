@@ -10,13 +10,15 @@ extends Control
 # Unreached holes show their par with a blank SCORE cell. Drawn entirely with _draw() to
 # match the project's asset-free UI convention (see aim_indicator.gd).
 
+const UI = preload("res://scripts/ui_palette.gd")
+
 const BLANK := -1
 
 # Layout (tuned so an 18-hole back nine -- 9 cols + IN + TOT -- fits the ScoreCard panel).
 const LABEL_W : float = 64.0    # left gutter holding the row labels
 const CELL_W  : float = 56.0    # per-column width
 const ROW_H   : float = 42.0    # height of each of the three rows
-const GAP     : float = 24.0    # vertical gap between the front/back blocks (18-hole)
+const GAP     : float = 0.0     # front/back blocks abut so the 18-hole grid reads continuous
 
 const NUM_FS    : int = 22
 const LABEL_FS  : int = 15
@@ -49,8 +51,10 @@ func _draw() -> void:
 		var y0 : float = (size.y - ROW_H * 3.0) * 0.5
 		_draw_block(0, _numbers.size(), y0, totals)
 	else:
-		# Front nine (+ OUT) over back nine (+ IN, TOT), stacked like a real scorecard.
-		var front : Array = [_make_total("OUT", 0, 9)]
+		# Front nine over back nine, stacked like a real scorecard. Each block carries its own
+		# nine's subtotal (OUT/IN) plus a running TOT (round total through that hole) so both
+		# blocks are the same 11 columns wide and line up edge-to-edge.
+		var front : Array = [_make_total("OUT", 0, 9), _make_total("TOT", 0, 9)]
 		var back  : Array = [_make_total("IN", 9, 18), _make_total("TOT", 0, 18)]
 		var total_h : float = ROW_H * 6.0 + GAP
 		var y0 : float = (size.y - total_h) * 0.5
@@ -140,7 +144,7 @@ func _square(center: Vector2, half: float, col: Color, width: float) -> void:
 
 # draw_string positions by the text baseline, so centre it manually on the cell point.
 func _text(center: Vector2, txt: String, fs: int, col: Color) -> void:
-	var font : Font = ThemeDB.fallback_font
+	var font : Font = UI.FONT
 	var dim  : Vector2 = font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
 	var pos  : Vector2 = Vector2(center.x - dim.x * 0.5, center.y + fs * 0.35)
 	draw_string(font, pos, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)

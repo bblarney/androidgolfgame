@@ -7,12 +7,14 @@ extends Control
 # UI is built in code (the .tscn only holds the bg + heading), mirroring club_selector.gd /
 # loading_screen.gd. Equip/loadout/save all go through EquipmentManager.
 
-const TEXT       := Color(0.95, 0.98, 0.85)
-const SUBTEXT    := Color(0.7, 0.82, 0.7)
-const SLOT_BG    := Color(0.16, 0.27, 0.20)
+const UI = preload("res://scripts/ui_palette.gd")
+
+const TEXT       := UI.INK
+const SUBTEXT    := UI.SUBINK
+const SLOT_BG    := UI.PANEL_SOLID
 const SLOT_EMPTY := Color(0.0, 0.0, 0.0)
-const HILITE     := Color(0.92, 0.78, 0.30)
-const BAR_FILL   := Color(0.55, 0.82, 0.45)
+const HILITE     := UI.ACCENT
+const BAR_FILL   := UI.METER
 
 const GRID_SLOTS := 16
 const GRID_COLS  := 4
@@ -83,6 +85,7 @@ func _build_overview() -> void:
 		var btn := Button.new()
 		btn.custom_minimum_size = Vector2(560.0, 72.0)
 		btn.add_theme_font_size_override("font_size", 26)
+		UI.style_button(btn, false)
 		btn.pressed.connect(_open_category.bind(cat))
 		vbox.add_child(btn)
 		card_buttons[cat["id"]] = btn
@@ -91,6 +94,7 @@ func _build_overview() -> void:
 	back.custom_minimum_size = Vector2(560.0, 64.0)
 	back.add_theme_font_size_override("font_size", 26)
 	back.text = "BACK TO MAIN MENU"
+	UI.style_button(back, false)
 	back.pressed.connect(func() -> void: SceneManager.goto(SceneManager.MAIN_MENU))
 	vbox.add_child(back)
 
@@ -158,6 +162,7 @@ func _build_submenu() -> void:
 
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(320.0, 0.0)
+	panel.add_theme_stylebox_override("panel", UI.solid_card_style(UI.EDGE, 10, 8.0))
 	body.add_child(panel)
 
 	stats_box = VBoxContainer.new()
@@ -175,6 +180,7 @@ func _build_submenu() -> void:
 	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	back.add_theme_font_size_override("font_size", 24)
 	back.text = "BACK"
+	UI.style_button(back, false)
 	back.pressed.connect(_show_overview)
 	root.add_child(back)
 

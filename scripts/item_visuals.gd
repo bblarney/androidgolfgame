@@ -15,6 +15,7 @@ const RARITY_COLORS := {
 	"uncommon":  Color(0.42, 0.78, 0.45),
 	"rare":      Color(0.36, 0.62, 0.95),
 	"legendary": Color(0.86, 0.55, 0.95),
+	"mythic":    Color(1.0, 0.62, 0.20),
 }
 
 

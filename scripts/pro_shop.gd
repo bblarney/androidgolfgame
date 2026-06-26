@@ -5,11 +5,13 @@ extends Control
 # CS-style cycling reveal and skews toward rarer items. Currency is the player's earned points
 # (SaveManager.spend_points). UI is built in code, mirroring clubhouse.gd / loading_screen.gd.
 
-const TEXT     := Color(0.95, 0.98, 0.85)
-const SUBTEXT  := Color(0.7, 0.82, 0.7)
-const PANEL_BG := Color(0.13, 0.22, 0.17)
-const HILITE   := Color(0.92, 0.78, 0.30)
-const BAR_FILL := Color(0.55, 0.82, 0.45)
+const UI = preload("res://scripts/ui_palette.gd")
+
+const TEXT     := UI.INK
+const SUBTEXT  := UI.SUBINK
+const PANEL_BG := UI.PANEL_SOLID
+const HILITE   := UI.ACCENT
+const BAR_FILL := UI.METER
 const DIM      := Color(0.05, 0.09, 0.07, 1.0)   # opaque: fully hides the picker behind the box overlay
 
 const BALL_CHANCE := 0.35   # share of offerings / box results that are balls vs clubs
@@ -114,6 +116,7 @@ func _build_ui() -> void:
 	back.custom_minimum_size = Vector2(560.0, 60.0)
 	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	back.add_theme_font_size_override("font_size", 26)
+	UI.style_button(back, false)
 	back.pressed.connect(func() -> void: SceneManager.goto(SceneManager.MAIN_MENU))
 	vbox.add_child(back)
 
@@ -150,16 +153,7 @@ func _rebuild_all() -> void:
 func _card_panel() -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(270.0, 470.0)
-	var box := StyleBoxFlat.new()
-	box.bg_color = PANEL_BG
-	box.set_corner_radius_all(10)
-	box.set_border_width_all(2)
-	box.border_color = Color(0.2, 0.32, 0.24)
-	box.content_margin_left = 16.0
-	box.content_margin_right = 16.0
-	box.content_margin_top = 16.0
-	box.content_margin_bottom = 16.0
-	panel.add_theme_stylebox_override("panel", box)
+	panel.add_theme_stylebox_override("panel", UI.solid_card_style(UI.EDGE, 10, 16.0))
 	return panel
 
 func _build_offer_card(index: int) -> Control:
@@ -204,6 +198,7 @@ func _build_offer_card(index: int) -> Control:
 	buy.custom_minimum_size = Vector2(0.0, 52.0)
 	buy.add_theme_font_size_override("font_size", 22)
 	buy.disabled = not afford
+	UI.style_button(buy, afford)
 	if afford:
 		buy.pressed.connect(_buy_offer.bind(index))
 	v.add_child(buy)
@@ -254,6 +249,7 @@ func _build_box_card() -> Control:
 	open.custom_minimum_size = Vector2(0.0, 52.0)
 	open.add_theme_font_size_override("font_size", 22)
 	open.disabled = not afford
+	UI.style_button(open, afford)
 	if afford:
 		open.pressed.connect(_open_box)
 	v.add_child(open)
@@ -457,6 +453,7 @@ func _reveal(winner: Dictionary, winner_kind: String, heading: Label, window: Co
 	add.custom_minimum_size = Vector2(320.0, 60.0)
 	add.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	add.add_theme_font_size_override("font_size", 26)
+	UI.style_button(add, true)
 	add.pressed.connect(_close_box)
 	v.add_child(add)
 

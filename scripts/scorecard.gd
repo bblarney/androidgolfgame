@@ -1,5 +1,7 @@
 extends Control
 
+const UI = preload("res://scripts/ui_palette.gd")
+
 signal next_pressed
 
 @onready var lbl_hole    : Label   = $Panel/VBox/HoleLabel
@@ -12,6 +14,18 @@ signal next_pressed
 
 func _ready() -> void:
 	next_button.pressed.connect(func() -> void: next_pressed.emit())
+	_style()
+
+# Broadcast styling for the post-hole modal: a rounded translucent panel with a gold accent
+# edge, cohesive ink colours, and a gold primary action button.
+func _style() -> void:
+	$Panel.add_theme_stylebox_override("panel", UI.card_style(5.0, 12))
+	lbl_hole.add_theme_color_override("font_color", UI.ACCENT)
+	lbl_points.add_theme_color_override("font_color", UI.ACCENT)
+	lbl_result.add_theme_color_override("font_color", UI.SUBINK)
+	for l : Label in [lbl_strokes, lbl_par]:
+		l.add_theme_color_override("font_color", UI.INK)
+	UI.style_button(next_button, true)
 
 func show_hole_result(hole_num: int, strokes: int, par: int, points: int, round_done: bool, total_vs_par: int, total_strokes: int) -> void:
 	var diff : int = strokes - par
@@ -52,10 +66,18 @@ func show_hole_result(hole_num: int, strokes: int, par: int, points: int, round_
 
 	if round_done:
 		var sign_str : String = "+" if total_vs_par >= 0 else ""
-		lbl_result.text  = "Round Complete!  Total: %d (%s%d)" % [total_strokes, sign_str, total_vs_par]
-		next_button.text = "Main Menu"
+		if GameState.game_mode == "tournament":
+			# A tournament day ends on the leaderboard (cut + standings) rather than the menu.
+			lbl_result.text  = "%s Complete!  Today: %d (%s%d)" % [TournamentManager.day_name(), total_strokes, sign_str, total_vs_par]
+			next_button.text = "Leaderboard"
+		else:
+			lbl_result.text  = "Round Complete!  Total: %d (%s%d)" % [total_strokes, sign_str, total_vs_par]
+			next_button.text = "Main Menu"
 	else:
 		lbl_result.text  = ""
 		next_button.text = "Next Hole"
 
 	visible = true
+	modulate.a = 0.0
+	var tw := create_tween()
+	tw.tween_property(self, "modulate:a", 1.0, 0.2)

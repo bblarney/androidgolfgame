@@ -1,5 +1,7 @@
 extends VBoxContainer
 
+const UI = preload("res://scripts/ui_palette.gd")
+
 # One toggle button per club type. Each resolves to whatever club the player has
 # slotted in that type via the clubhouse loadout, so swapping a club in the clubhouse
 # carries straight into the on-course selector.
@@ -10,8 +12,9 @@ func _ready() -> void:
 	for i in range(CLUB_TYPES.size()):
 		var btn := Button.new()
 		btn.text = TYPE_LABELS[i]
-		btn.custom_minimum_size = Vector2(108.0, 56.0)
+		btn.custom_minimum_size = Vector2(108.0, 52.0)
 		btn.toggle_mode = true
+		btn.focus_mode = Control.FOCUS_NONE
 		btn.pressed.connect(_on_pressed.bind(CLUB_TYPES[i]))
 		add_child(btn)
 	_refresh()
@@ -26,4 +29,12 @@ func _refresh() -> void:
 	var equipped : String = SaveManager.data.get("equipped", {}).get("club", "driver_default")
 	for i in range(get_child_count()):
 		var btn : Button = get_child(i)
-		btn.button_pressed = (EquipmentManager.get_loadout_club(CLUB_TYPES[i]) == equipped)
+		var active : bool = EquipmentManager.get_loadout_club(CLUB_TYPES[i]) == equipped
+		btn.button_pressed = active
+		UI.style_button(btn, active)
+		# A small pop on whichever club just became active so a tap registers visually.
+		if active:
+			btn.pivot_offset = btn.size * 0.5
+			btn.scale = Vector2(1.08, 1.08)
+			var tw := create_tween()
+			tw.tween_property(btn, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)

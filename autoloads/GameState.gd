@@ -22,25 +22,32 @@ func _ready() -> void:
 	# its data is already on disk-in-memory by now.
 	_load_from_save()
 
-# Begins a brand-new round in the given mode and persists it as in-progress.
-func start_round(mode: String) -> void:
+# Begins a brand-new round in the given mode and persists it as in-progress. A non-zero seed
+# pins the hole layout (tournaments drive every day from a seed owned by TournamentManager so a
+# given day's course is reproducible); seed 0 means "roll a fresh one" for casual play.
+func start_round(mode: String, seed_override: int = 0) -> void:
 	game_mode = mode
 	match mode:
 		"practice":
 			holes_per_round = INFINITE
-			award_points    = false
+		"tournament":
+			# Tournaments are scored against the field, not the points economy.
+			holes_per_round = 18
 		"18":
 			holes_per_round = 18
-			award_points    = true
 		_:  # "9"
 			game_mode       = "9"
 			holes_per_round = 9
-			award_points    = true
-	current_round_seed = randi()
+	award_points = _earns_points(game_mode)
+	current_round_seed = seed_override if seed_override != 0 else randi()
 	current_hole = 1
 	hole_scores.clear()
 	hole_pars.clear()
 	_persist_round(true)
+
+# Only the casual 9/18 ladders feed the pro-shop economy; practice and tournament play do not.
+func _earns_points(mode: String) -> bool:
+	return mode == "9" or mode == "18"
 
 # Used after a round completes when the old code looped straight into another round; kept so
 # any remaining callers behave, but the menu/scorecard now route back to the main menu instead.
@@ -155,12 +162,40 @@ func _persist_round(in_progress: bool) -> void:
 	SaveManager.data["round_in_progress"]  = in_progress
 	SaveManager.save()
 
+# Serializes the live round into a self-contained dict. TournamentManager stashes this in its
+# own slot so a tournament day's progress is isolated from the casual round_in_progress slot
+# (starting a 9/18 round from the menu must not clobber a mid-played tournament day).
+func snapshot() -> Dictionary:
+	return {
+		"current_round_seed": current_round_seed,
+		"current_hole":       current_hole,
+		"holes_per_round":    holes_per_round,
+		"game_mode":          game_mode,
+		"hole_scores":        hole_scores.duplicate(),
+		"hole_pars":          hole_pars.duplicate(),
+	}
+
+# Inverse of snapshot(): pulls a stashed round back into the live fields (the typed-array copy
+# mirrors _load_from_save, since dicts loaded from JSON hand back untyped arrays).
+func restore(d: Dictionary) -> void:
+	current_round_seed = d.get("current_round_seed", 0)
+	current_hole       = d.get("current_hole", 1)
+	holes_per_round    = d.get("holes_per_round", DEFAULT_HOLES)
+	game_mode          = d.get("game_mode", "9")
+	award_points       = _earns_points(game_mode)
+	hole_scores.clear()
+	for s in d.get("hole_scores", []):
+		hole_scores.append(int(s))
+	hole_pars.clear()
+	for p in d.get("hole_pars", []):
+		hole_pars.append(int(p))
+
 func _load_from_save() -> void:
 	current_round_seed = SaveManager.data.get("current_round_seed", 0)
 	current_hole       = SaveManager.data.get("current_hole", 1)
 	holes_per_round    = SaveManager.data.get("holes_per_round", DEFAULT_HOLES)
 	game_mode          = SaveManager.data.get("game_mode", "9")
-	award_points       = game_mode != "practice"
+	award_points       = _earns_points(game_mode)
 	# JSON arrays come back as untyped Array[Variant]; copy into our typed arrays.
 	hole_scores.clear()
 	for s in SaveManager.data.get("hole_scores", []):
