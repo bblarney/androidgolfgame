@@ -59,6 +59,11 @@ const COL_CUP_FLOOR : Color = Color(0.80, 0.78, 0.72)
 # ── Green pad shaping ─────────────────────────────────────────────────────────
 const GREEN_RAISE   : float = 0.5    # pad sits this far above the surrounding turf (the lip)
 const GREEN_LIP_END : float = 1.28   # normalized ellipse dist where the bank finishes blending out
+# Greens are no longer dead-flat: a gentle tilt/tier is laid over the pad so approach shots must
+# account for the slope and putts have to be read. The relief is capped well below the grade that
+# would stop the ball resting, and is faded to zero around the pin (see _green_relief) so the cup
+# well/collar still seat on level ground exactly as before.
+const GREEN_RELIEF_MAX : float = 0.55   # max world-unit deviation of the pad surface from pad_h
 
 # ── Bunker shaping ────────────────────────────────────────────────────────────
 # Bunkers are oval depressions (same ellipse metric as the green) with a defined edge:
@@ -132,7 +137,7 @@ func generate_hole(hole_seed: int, biome: String = "parkland") -> Dictionary:
 
 	# Carved sand traps: gathering depressions the ball falls into (footprints only;
 	# the basin is in the heightmap and the cells are coloured sand).
-	var sand : Array = _build_sand(heights, pts_x, pts_z, spine, fairway_half, green, water_bodies)
+	var sand : Array = _build_sand(heights, pts_x, pts_z, spine, fairway_half, green, water_bodies, bp["template"])
 
 	# Decorative vegetation (trees, grass tufts, scrub) scattered through the rough per
 	# biome. Placement only -- the meshes are instanced in build_terrain. Computed here so
@@ -221,15 +226,18 @@ func _roll_blueprint(biome: String = "parkland") -> Dictionary:
 	var par_roll : float = rng.randf()
 	var par      : int
 	var length   : float
+	# Lengths run long: top-tier gear roughly doubles carry, so holes are scaled up (more on
+	# par 4/5, where the extra shots bite) to keep greens-in-regulation -- and birdies -- earned.
+	# Par is unchanged, so the longer holes raise the birdie bar directly.
 	if par_roll < 0.30:
 		par    = 3
-		length = rng.randf_range(100.0, 150.0)
+		length = rng.randf_range(130.0, 190.0)
 	elif par_roll < 0.75:
 		par    = 4
-		length = rng.randf_range(180.0, 255.0)
+		length = rng.randf_range(250.0, 360.0)
 	else:
 		par    = 5
-		length = rng.randf_range(280.0, 360.0)
+		length = rng.randf_range(410.0, 540.0)
 
 	# Shape template. S-curves only on the longer par 4/5 holes; par 3 stays mostly straight.
 	var template : String
@@ -253,12 +261,15 @@ func _roll_blueprint(biome: String = "parkland") -> Dictionary:
 		theme      = "cliff"
 		elev_a     = rng.randf_range(8.0, 14.0)
 		elev_break = rng.randf_range(0.14, 0.24)
-	elif er < 0.30:
+	elif er < 0.40:
+		# Uphills are now the more common slope: the rise shortens roll-out and makes the hole
+		# play longer than its yardage, stacking distance pressure on top of the longer holes.
+		# Amplitude is moderate (well short of the cliff drop) and spread over the whole length.
 		theme  = "uphill"
-		elev_a = rng.randf_range(3.0, 6.0)
-	elif er < 0.55:
+		elev_a = rng.randf_range(4.0, 8.0)
+	elif er < 0.60:
 		theme  = "downhill"
-		elev_a = rng.randf_range(3.0, 7.0)
+		elev_a = rng.randf_range(3.0, 5.5)
 	# else: rolling
 
 	# Water feature. Bodies are large now and present on the large majority of holes, with
@@ -301,9 +312,13 @@ func _gen_spine(length: float, template: String, fairway_half: float) -> PackedV
 	match template:
 		"dogleg_left", "dogleg_right":
 			var dir   : float = -1.0 if template == "dogleg_left" else 1.0
-			var cf    : float = rng.randf_range(0.50, 0.62)
-			var cx    : float = -dir * rng.randf_range(4.0, 10.0)   # landing favours the outside of the bend
-			var swing : float = rng.randf_range(16.0, 26.0)
+			# Sharper bends: the corner sits a touch later and the green swings further to the
+			# outside, so the post-corner leg is short and steep (~55-70 deg). cx hugs the inside
+			# so the safe approach is the long way round; _place_dogleg_guard plants sand on the
+			# inside corner so cutting the angle is punished rather than rewarded.
+			var cf    : float = rng.randf_range(0.54, 0.66)
+			var cx    : float = -dir * rng.randf_range(5.0, 11.0)   # landing favours the outside of the bend
+			var swing : float = rng.randf_range(26.0, 40.0)
 			pts.append(Vector2(clampf(cx * 0.5, -lim, lim), lerpf(z_tee, z_cup, cf * 0.6)))
 			pts.append(Vector2(clampf(cx,        -lim, lim), lerpf(z_tee, z_cup, cf)))
 			pts.append(Vector2(clampf(cx + dir * swing, -lim, lim), z_cup))
@@ -492,21 +507,62 @@ func _shape_green(heights: PackedFloat32Array, pts_x: int, pts_z: int, spine: Pa
 		rz = rng.randf_range(13.5, 18.0)
 		rot = 0.0
 
-	var pad_h : float = _sample_height(heights, pts_x, pts_z, center.x, center.y) + GREEN_RAISE
+	var pad_h  : float      = _sample_height(heights, pts_x, pts_z, center.x, center.y) + GREEN_RAISE
+	var relief : Dictionary = _roll_green_relief()
 
 	for zi in range(pts_z):
 		for xi in range(pts_x):
 			var x  : float = (-TERRAIN_W * 0.5) + float(xi) * CELL
 			var z  : float = float(zi) * CELL
-			var nd : float = _green_norm_dist(x, z, center, rx, rz, rot)
+			# Green-local coords (ellipse axis-aligned): lx across, lz along the line of play.
+			var dx : float = x - center.x
+			var dz : float = z - center.y
+			var lx : float =  dx * cos(rot) + dz * sin(rot)
+			var lz : float = -dx * sin(rot) + dz * cos(rot)
+			var nd : float = sqrt((lx / rx) * (lx / rx) + (lz / rz) * (lz / rz))
 			if nd <= 1.0:
-				heights[zi * pts_x + xi] = pad_h
+				heights[zi * pts_x + xi] = pad_h + _green_relief(lx, lz, rx, rz, relief)
 			elif nd <= GREEN_LIP_END:
-				# Short bank from the raised pad down to the natural turf -> a defined lip.
-				var t : float = (nd - 1.0) / (GREEN_LIP_END - 1.0)
-				heights[zi * pts_x + xi] = lerpf(pad_h, heights[zi * pts_x + xi], t * t * (3.0 - 2.0 * t))
+				# Short bank from the raised pad down to the natural turf -> a defined lip. Blend
+				# from the relief'd pad edge (not flat pad_h) so the lip meets the sloped surface.
+				var t      : float = (nd - 1.0) / (GREEN_LIP_END - 1.0)
+				var edge_h : float = pad_h + _green_relief(lx, lz, rx, rz, relief)
+				heights[zi * pts_x + xi] = lerpf(edge_h, heights[zi * pts_x + xi], t * t * (3.0 - 2.0 * t))
 
 	return { "center": center, "rx": rx, "rz": rz, "rot": rot, "pad_h": pad_h }
+
+# Roll the green's surface character: usually a single gentle plane (tilt), sometimes a two-shelf
+# tier with a smooth step. Amplitudes are deliberately small so the resulting grade stays well
+# under what would keep the ball from resting (see _green_relief for the cap and the pin shelf).
+func _roll_green_relief() -> Dictionary:
+	if rng.randf() < 0.34:
+		return {
+			"form"  : "tier",
+			"edge"  : rng.randf_range(-0.25, 0.25),   # where the step sits along depth (u = lz/rz)
+			"band"  : rng.randf_range(0.35, 0.50),    # half-width of the smooth transition, in u
+			"step"  : rng.randf_range(0.18, 0.28),    # half the height difference between shelves
+			"cross" : rng.randf_range(-0.20, 0.20),   # slight side-fall on top of the tier
+		}
+	return {
+		"form" : "tilt",
+		"ax"   : rng.randf_range(-0.40, 0.40),        # fall across the green, at the edge
+		"az"   : rng.randf_range(-0.40, 0.40),        # fall front-to-back, at the edge
+	}
+
+# Height offset (world units) of the green surface above/below pad_h at green-local coords lx,lz.
+# Faded to zero within CUP_COLLAR_R of the pin so the cup well and collar sit level, and clamped
+# to GREEN_RELIEF_MAX so the slope never gets steep enough to stop the ball resting.
+func _green_relief(lx: float, lz: float, rx: float, rz: float, relief: Dictionary) -> float:
+	var h : float
+	if relief["form"] == "tier":
+		var u : float = lz / rz                                   # -1..1 along depth
+		var s : float = smoothstep(relief["edge"] - relief["band"], relief["edge"] + relief["band"], u)
+		h = lerpf(-relief["step"], relief["step"], s) + relief["cross"] * (lx / rx)
+	else:  # "tilt": a single gentle plane
+		h = relief["ax"] * (lx / rx) + relief["az"] * (lz / rz)
+	var d     : float = sqrt(lx * lx + lz * lz)
+	var shelf : float = smoothstep(CUP_COLLAR_R, CUP_COLLAR_R + 2.5, d)
+	return clampf(h, -GREEN_RELIEF_MAX, GREEN_RELIEF_MAX) * shelf
 
 func _green_norm_dist(x: float, z: float, center: Vector2, rx: float, rz: float, rot: float) -> float:
 	var dx : float = x - center.x
@@ -1000,17 +1056,50 @@ func water_at(x: float, z: float, y: float, hole_data: Dictionary) -> bool:
 
 # ── Sand: carved gathering traps ──────────────────────────────────────────────
 
-func _build_sand(heights: PackedFloat32Array, pts_x: int, pts_z: int, spine: PackedVector2Array, fairway_half: float, green: Dictionary, water: Array) -> Array:
+func _build_sand(heights: PackedFloat32Array, pts_x: int, pts_z: int, spine: PackedVector2Array, fairway_half: float, green: Dictionary, water: Array, template: String) -> Array:
 	var out     : Array = []
 	var z_max   : float = float(pts_z - 1) * CELL
 	# Roll the two characters independently and mix them on the hole, but guarantee at
-	# least two bunkers overall.
-	var n_fair  : int = rng.randi_range(1, 3)
+	# least two bunkers overall. Fairway count runs higher now so the longer holes have real
+	# trouble in the landing zones rather than a single token trap.
+	var n_fair  : int = rng.randi_range(2, 4)
 	var n_green : int = rng.randi_range(1, 3)
 	# Greenside first so the fairway overlap test sees them too.
 	_place_greenside_bunkers(out, heights, pts_x, pts_z, spine, green, water, z_max, n_green)
+	# Guard the inside of a dogleg before the random fairway traps, so the corner always wins
+	# its spot -- a sharp dogleg only matters if cutting the corner risks sand.
+	_place_dogleg_guard(out, heights, pts_x, pts_z, spine, template, fairway_half, green, water, z_max)
 	_place_fairway_bunkers(out, heights, pts_x, pts_z, spine, fairway_half, green, water, z_max, n_fair)
 	return out
+
+# Plant 1-2 traps on the INSIDE of a dogleg's bend -- the cuttable corner a long hitter would
+# try to fly. dir is the side the hole turns toward; the corner control point sits on the far
+# side, so offsetting from the bend toward `dir` lands the sand squarely on the shortcut line.
+# Reuses the same bunker machinery as the fairway traps; runs before them so it owns its spot.
+func _place_dogleg_guard(out: Array, heights: PackedFloat32Array, pts_x: int, pts_z: int, spine: PackedVector2Array, template: String, fairway_half: float, green: Dictionary, water: Array, z_max: float) -> void:
+	if template != "dogleg_left" and template != "dogleg_right":
+		return
+	var dir    : float   = -1.0 if template == "dogleg_left" else 1.0
+	var inside : Vector2 = Vector2(dir, 0.0)   # the hole turns toward +x*dir; the cut is on that side
+	var n      : int = rng.randi_range(1, 2)
+	var placed : int = 0
+	var attempts : int = 0
+	while placed < n and attempts < 40:
+		attempts += 1
+		var frac   : float   = rng.randf_range(0.55, 0.68)
+		var c      : Vector2 = _spine_sample(spine, frac)
+		var brx    : float   = rng.randf_range(5.0, 8.0)
+		var brz    : float   = brx * rng.randf_range(0.55, 0.75)
+		var off    : float   = fairway_half + rng.randf_range(2.0, 7.0)
+		var center : Vector2 = c + inside * off
+		if not _bunker_spot_ok(center, brx, brz, green, water, out, z_max):
+			continue
+		var tng  : Vector2 = _spine_tangent(spine, frac)
+		var body : Dictionary = _make_bunker_body("fairway", center, brx, brz, atan2(tng.y, tng.x),
+			rng.randf_range(0.6, 1.0), 0.5, -inside, rng.randf_range(0.2, 0.32), heights, pts_x, pts_z)
+		_carve_bunker(heights, pts_x, pts_z, body, green)
+		out.append(body)
+		placed += 1
 
 # Greenside bunkers: small, deep, steep-faced. They ring the SIDES and REAR of the green
 # (and the front corners) but never the front-centre, so the approach to the pin always
@@ -1059,7 +1148,10 @@ func _place_fairway_bunkers(out: Array, heights: PackedFloat32Array, pts_x: int,
 	var attempts : int = 0
 	while placed < count and attempts < 60:
 		attempts += 1
-		var t   : float   = rng.randf_range(0.30, 0.75)
+		# Bias toward two decision zones rather than scattering uniformly: the drive landing
+		# zone and the lay-up/approach zone short of the green -- where a strong shot actually
+		# comes down -- so the traps catch good distance instead of sitting out of play.
+		var t   : float   = rng.randf_range(0.32, 0.48) if rng.randf() < 0.5 else rng.randf_range(0.62, 0.78)
 		var c   : Vector2 = _spine_sample(spine, t)
 		var tng : Vector2 = _spine_tangent(spine, t)
 		var nrm : Vector2 = Vector2(-tng.y, tng.x)
