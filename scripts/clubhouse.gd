@@ -99,7 +99,13 @@ func _refresh_overview() -> void:
 	for cat: Dictionary in CATEGORIES:
 		var item := _equipped_item(cat)
 		var item_name : String = item.get("name", "—")
-		card_buttons[cat["id"]].text = "%s:   %s" % [cat["title"], item_name]
+		var btn : Button = card_buttons[cat["id"]]
+		btn.text = "%s:   %s" % [cat["title"], item_name]
+		var rc : Color = ItemVisuals.rarity_color(item.get("rarity", "common")) if not item.is_empty() else TEXT
+		btn.add_theme_color_override("font_color", rc)
+		btn.add_theme_color_override("font_hover_color", rc)
+		btn.add_theme_color_override("font_pressed_color", rc)
+		btn.add_theme_color_override("font_focus_color", rc)
 
 
 func _show_overview() -> void:
@@ -199,7 +205,7 @@ func _refresh_grid() -> void:
 			var is_eq : bool = item.get("id", "") == equipped_id
 			btn.disabled = false
 			btn.text = ""
-			_style_slot(btn, false, is_eq)
+			_style_slot(btn, false, is_eq, ItemVisuals.rarity_color(item.get("rarity", "common")))
 			# Live 3D render in every slot: a club head, or a coloured ball.
 			if is_ball:
 				btn.add_child(ItemVisuals.build_ball_thumbnail(item))
@@ -232,11 +238,22 @@ func _refresh_stats(item: Dictionary) -> void:
 	for child in stats_box.get_children():
 		child.queue_free()
 
+	var has_item : bool = not item.is_empty()
+	var rarity : String = item.get("rarity", "common")
+	var rc : Color = ItemVisuals.rarity_color(rarity)
+
 	var name_label := Label.new()
 	name_label.text = item.get("name", "—")
 	name_label.add_theme_font_size_override("font_size", 24)
-	name_label.add_theme_color_override("font_color", TEXT)
+	name_label.add_theme_color_override("font_color", rc if has_item else TEXT)
 	stats_box.add_child(name_label)
+
+	if has_item:
+		var rar_label := Label.new()
+		rar_label.text = rarity.to_upper()
+		rar_label.add_theme_font_size_override("font_size", 14)
+		rar_label.add_theme_color_override("font_color", rc)
+		stats_box.add_child(rar_label)
 
 	var is_ball : bool = current_category["is_ball"]
 	var metrics : Array = BALL_METRICS if is_ball else CLUB_METRICS
@@ -289,13 +306,18 @@ func _equipped_item(cat: Dictionary) -> Dictionary:
 	return EquipmentManager.get_all_clubs().get(id, {})
 
 
-func _style_slot(btn: Button, empty: bool, equipped: bool) -> void:
+func _style_slot(btn: Button, empty: bool, equipped: bool, rarity_col: Color = SUBTEXT) -> void:
 	var box := StyleBoxFlat.new()
 	box.bg_color = SLOT_EMPTY if empty else SLOT_BG
 	box.set_corner_radius_all(6)
 	if equipped:
+		# Equipped item keeps the gold highlight so it stays unmistakable at a glance.
 		box.border_color = HILITE
 		box.set_border_width_all(4)
+	elif not empty:
+		# Owned items are framed in their rarity colour.
+		box.border_color = rarity_col
+		box.set_border_width_all(3)
 	btn.add_theme_stylebox_override("normal", box)
 	btn.add_theme_stylebox_override("hover", box)
 	btn.add_theme_stylebox_override("pressed", box)

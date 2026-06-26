@@ -10,7 +10,7 @@ const SUBTEXT  := Color(0.7, 0.82, 0.7)
 const PANEL_BG := Color(0.13, 0.22, 0.17)
 const HILITE   := Color(0.92, 0.78, 0.30)
 const BAR_FILL := Color(0.55, 0.82, 0.45)
-const DIM      := Color(0.0, 0.0, 0.0, 0.7)
+const DIM      := Color(0.05, 0.09, 0.07, 1.0)   # opaque: fully hides the picker behind the box overlay
 
 const BALL_CHANCE := 0.35   # share of offerings / box results that are balls vs clubs
 
@@ -398,7 +398,7 @@ func _play_reel(winner: Dictionary, winner_kind: String) -> void:
 
 	var tw := create_tween()
 	tw.tween_property(reel, "position:x", target_x, REEL_TIME).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
-	tw.tween_callback(_reveal.bind(winner, winner_kind, heading))
+	tw.tween_callback(_reveal.bind(winner, winner_kind, heading, window))
 
 func winner_kind_entry(winner: Dictionary, kind: String) -> Dictionary:
 	return {"kind": kind, "item": winner}
@@ -422,14 +422,17 @@ func _reel_card(entry: Dictionary) -> Control:
 	panel.add_child(holder)
 	return panel
 
-func _reveal(winner: Dictionary, winner_kind: String, heading: Label) -> void:
+func _reveal(winner: Dictionary, winner_kind: String, heading: Label, window: Control) -> void:
+	# Clear the reel (and its centre marker child) so only the won item remains on screen.
+	window.queue_free()
+
 	# Commit the prize now so it's kept even if the overlay is dismissed.
 	EquipmentManager.register_generated_item(winner)
 	EquipmentManager.add_to_inventory(winner.get("id", ""))
 
 	var rarity : String = winner.get("rarity", "common")
 	var rc : Color = ItemVisuals.rarity_color(rarity)
-	heading.text = "YOU WON A %s!" % rarity.to_upper()
+	heading.text = "%s %s" % [rarity.capitalize(), winner.get("name", "—")]
 	heading.add_theme_color_override("font_color", rc)
 
 	var center := CenterContainer.new()
@@ -448,13 +451,6 @@ func _reveal(winner: Dictionary, winner_kind: String, heading: Label) -> void:
 	var svc : SubViewportContainer = ItemVisuals.build_ball_thumbnail(winner) if winner_kind == "ball" else ItemVisuals.build_club_thumbnail(winner)
 	holder.add_child(svc)
 	v.add_child(holder)
-
-	var name_lbl := Label.new()
-	name_lbl.text = winner.get("name", "—")
-	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_lbl.add_theme_font_size_override("font_size", 34)
-	name_lbl.add_theme_color_override("font_color", rc)
-	v.add_child(name_lbl)
 
 	var add := Button.new()
 	add.text = "ADD TO BAG"

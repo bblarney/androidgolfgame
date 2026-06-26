@@ -132,6 +132,7 @@ static func _make_thumb(content: Node3D, cam_z: float) -> SubViewportContainer:
 	var vp := SubViewport.new()
 	vp.size = Vector2i(108, 108)
 	vp.transparent_bg = true
+	vp.own_world_3d = true   # isolate each thumbnail's 3D scene; otherwise all share the parent world and pile up
 	vp.msaa_3d = Viewport.MSAA_4X
 	svc.add_child(vp)
 	vp.add_child(content)
