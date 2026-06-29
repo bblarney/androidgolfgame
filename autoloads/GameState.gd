@@ -183,12 +183,18 @@ func restore(d: Dictionary) -> void:
 	holes_per_round    = d.get("holes_per_round", DEFAULT_HOLES)
 	game_mode          = d.get("game_mode", "9")
 	award_points       = _earns_points(game_mode)
-	hole_scores.clear()
-	for s in d.get("hole_scores", []):
-		hole_scores.append(int(s))
-	hole_pars.clear()
-	for p in d.get("hole_pars", []):
-		hole_pars.append(int(p))
+	_fill_int_array(hole_scores, d.get("hole_scores", []))
+	_fill_int_array(hole_pars, d.get("hole_pars", []))
+
+# Copies a possibly-malformed JSON array into a typed int array, skipping anything that isn't a
+# number. Guards against a corrupted save (e.g. hole_pars stored as an object) crashing the load.
+func _fill_int_array(dest: Array[int], src: Variant) -> void:
+	dest.clear()
+	if not (src is Array):
+		return
+	for v in src:
+		if v is float or v is int:
+			dest.append(int(v))
 
 func _load_from_save() -> void:
 	current_round_seed = SaveManager.data.get("current_round_seed", 0)
@@ -197,9 +203,5 @@ func _load_from_save() -> void:
 	game_mode          = SaveManager.data.get("game_mode", "9")
 	award_points       = _earns_points(game_mode)
 	# JSON arrays come back as untyped Array[Variant]; copy into our typed arrays.
-	hole_scores.clear()
-	for s in SaveManager.data.get("hole_scores", []):
-		hole_scores.append(int(s))
-	hole_pars.clear()
-	for p in SaveManager.data.get("hole_pars", []):
-		hole_pars.append(int(p))
+	_fill_int_array(hole_scores, SaveManager.data.get("hole_scores", []))
+	_fill_int_array(hole_pars, SaveManager.data.get("hole_pars", []))

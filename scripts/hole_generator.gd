@@ -105,6 +105,13 @@ var rng := RandomNumberGenerator.new()
 func generate_hole(hole_seed: int, biome: String = "parkland") -> Dictionary:
 	rng.seed = hole_seed
 
+	# Per-hole wind, drawn from an INDEPENDENT rng seeded off the hole seed: deterministic and
+	# reproducible (survives app close/reopen like everything else), but kept off the shared
+	# `rng` stream so it never shifts the par/length/layout rolls -- existing holes are unchanged.
+	# Stored as a horizontal world vector whose length is the wind speed in mph (ball.gd scales
+	# that into a flight force; the HUD reads the length for the readout).
+	var wind : Vector3 = _roll_wind(hole_seed)
+
 	var bp : Dictionary = _roll_blueprint(biome)
 
 	var length         : float = bp["length"]
@@ -169,7 +176,22 @@ func generate_hole(hole_seed: int, biome: String = "parkland") -> Dictionary:
 		"half_width"      : TERRAIN_W * 0.5,
 		"biome"           : bp["biome"],
 		"vegetation"      : vegetation,
+		"wind"            : wind,
 	}
+
+# Wind for one hole: ~18% of holes play dead calm; the rest get a random heading and a speed
+# anywhere from a gentle breeze to a stiff gale. Biased toward the lighter end (squared roll) so
+# big blows stay special rather than the norm. Uses its own rng (see generate_hole) so it doesn't
+# perturb the layout stream.
+func _roll_wind(hole_seed: int) -> Vector3:
+	var wrng := RandomNumberGenerator.new()
+	wrng.seed = hole_seed ^ 0x57494E44   # "WIND"
+	if wrng.randf() < 0.18:
+		return Vector3.ZERO
+	var ang : float = wrng.randf() * TAU
+	var t : float = wrng.randf()
+	var mph : float = lerp(5.0, 32.0, t * t)
+	return Vector3(cos(ang), 0.0, sin(ang)) * mph
 
 func build_terrain(data: Dictionary, parent: Node3D) -> void:
 	# Surrounding land first, so the playfield terrain draws over its inner overlap.
@@ -211,7 +233,7 @@ func build_terrain(data: Dictionary, parent: Node3D) -> void:
 
 	# Cup well + flag.
 	parent.add_child(_make_cup_well(data["cup_x_off"], data["cup_z_w"], data["cup_base_h"]))
-	parent.add_child(_make_flag(data["cup_pos_surface"]))
+	parent.add_child(_make_flag(data["cup_pos_surface"], data.get("wind", Vector3.ZERO)))
 
 	# Tee box: a defined pad, two markers, and the peg the ball is teed up on.
 	parent.add_child(_make_tee_box(data["tee"]))
@@ -1924,7 +1946,7 @@ func _make_cup_well(cx: float, cz: float, base_h: float) -> Node3D:
 
 	return node
 
-func _make_flag(cup_pos: Vector3) -> Node3D:
+func _make_flag(cup_pos: Vector3, wind: Vector3) -> Node3D:
 	var node := Node3D.new()
 	node.name = "Flag"
 
@@ -1960,12 +1982,21 @@ func _make_flag(cup_pos: Vector3) -> Node3D:
 	var flag_mat := ShaderMaterial.new()
 	flag_mat.shader = FLAG_SHADER
 	flag_mat.set_shader_parameter("flag_color", Color(COL_FLAG.r, COL_FLAG.g, COL_FLAG.b))
+	# Flutter speed + ripple scale with the hole's wind; a small floor keeps the cloth alive when
+	# the air is dead calm rather than frozen flat.
+	var mph : float = Vector2(wind.x, wind.z).length()
+	flag_mat.set_shader_parameter("wind_speed", clampf(mph * 0.6, 0.8, 12.0))
+	flag_mat.set_shader_parameter("wave_amp",   clampf(0.08 + mph * 0.012, 0.08, 0.45))
 	flag.material_override = flag_mat
-	# Stand the plane upright (XZ -> XY) so width runs along world X and height along world Y.
-	flag.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
+	# Stand the plane upright (XZ -> XY), then yaw it about the pole so the free edge (local +X)
+	# streams the way the wind blows -- Basis(UP, a) sends +X to (cos a, 0, -sin a), so the yaw
+	# that points it down the wind vector is atan2(-wind.z, wind.x). Calm holes leave it at +X.
+	var yaw : float = atan2(-wind.z, wind.x) if mph > 0.0 else 0.0
+	var basis : Basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, -PI * 0.5)
 	# Attached edge against the pole, top of the cloth just below the pole top.
 	var pole_top : float = cup_pos.y - CUP_DEPTH * 0.5 + pole_h
-	flag.position = Vector3(cup_pos.x + 0.05, pole_top - flag_h - 0.12, cup_pos.z)
+	var flag_pos := Vector3(cup_pos.x + 0.05, pole_top - flag_h - 0.12, cup_pos.z)
+	flag.transform = Transform3D(basis, flag_pos)
 	node.add_child(flag)
 
 	return node
@@ -2109,6 +2140,7 @@ func _build_vegetation_nodes(data: Dictionary, parent: Node3D) -> void:
 	var veg : Array = data.get("vegetation", [])
 	if veg.is_empty():
 		return
+	var wind : Vector3 = data.get("wind", Vector3.ZERO)
 
 	# Group by type AND the decorative flag: a tree type can have both in-bounds (collidable)
 	# and off-playfield decorative instances, and they need separate MultiMeshes so only the
@@ -2142,7 +2174,7 @@ func _build_vegetation_nodes(data: Dictionary, parent: Node3D) -> void:
 		var mmi := MultiMeshInstance3D.new()
 		mmi.name              = "Veg_" + key
 		mmi.multimesh         = mm
-		mmi.material_override  = _veg_material_for(t)
+		mmi.material_override  = _veg_material_for(t, wind)
 		# Trees cast shadows; low grass/scrub don't (mobile cost, negligible visual loss).
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if _is_tree(t) \
 			else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -2194,12 +2226,21 @@ func _veg_mesh_for(t: String) -> ArrayMesh:
 		"scrub":              return _make_scrub_mesh()
 		_:                    return _make_grass_mesh()
 
-func _veg_material_for(t: String) -> Material:
+# `wind` is the hole's world wind vector. Vegetation leans/gusts along its direction, and sways
+# harder/faster the stronger it blows; a gentle floor keeps a calm hole subtly alive. Trees barely
+# flex (stiff trunks); grass ripples freely.
+func _veg_material_for(t: String, wind: Vector3) -> Material:
+	# Normalized world heading the wind blows toward (xz); a default keeps a calm hole's ambient
+	# sway leaning a consistent way rather than dead still.
+	var mph     : float   = Vector2(wind.x, wind.z).length()
+	var dir     : Vector2 = Vector2(wind.x, wind.z).normalized() if mph > 0.01 else Vector2(0.3, 1.0).normalized()
+	var f       : float   = clampf(mph / 20.0, 0.0, 1.6)   # 0 calm .. ~1.6 at a full gale
 	if _is_tree(t):
 		var m := ShaderMaterial.new()
 		m.shader = WIND_SHADER
-		m.set_shader_parameter("wind_strength", 0.04)   # trees barely flex
-		m.set_shader_parameter("wind_speed", 1.1)
+		m.set_shader_parameter("wind_dir", dir)
+		m.set_shader_parameter("wind_strength", 0.03 + f * 0.06)
+		m.set_shader_parameter("wind_speed", 0.9 + f * 1.6)
 		return m
 	match t:
 		"scrub":
@@ -2210,8 +2251,9 @@ func _veg_material_for(t: String) -> Material:
 		_:  # grass
 			var g := ShaderMaterial.new()
 			g.shader = WIND_SHADER
-			g.set_shader_parameter("wind_strength", 0.14)
-			g.set_shader_parameter("wind_speed", 1.8)
+			g.set_shader_parameter("wind_dir", dir)
+			g.set_shader_parameter("wind_strength", 0.10 + f * 0.18)
+			g.set_shader_parameter("wind_speed", 1.5 + f * 2.5)
 			return g
 
 # Append a primitive mesh's surface (translated up by y_off, flat-coloured `col`) into the

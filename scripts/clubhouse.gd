@@ -59,6 +59,10 @@ var stats_box : VBoxContainer
 var current_category : Dictionary = {}
 var current_items    : Array = []     # item dicts currently shown in the grid
 
+# Slot styleboxes are identical for any (empty, equipped, rarity) combination, so build each once
+# and share it across slots/refreshes instead of allocating a fresh StyleBoxFlat per slot.
+var _slot_style_cache : Dictionary = {}
+
 
 func _ready() -> void:
 	AudioManager.play_music("menu")
@@ -314,17 +318,21 @@ func _equipped_item(cat: Dictionary) -> Dictionary:
 
 
 func _style_slot(btn: Button, empty: bool, equipped: bool, rarity_col: Color = SUBTEXT) -> void:
-	var box := StyleBoxFlat.new()
-	box.bg_color = SLOT_EMPTY if empty else SLOT_BG
-	box.set_corner_radius_all(6)
-	if equipped:
-		# Equipped item keeps the gold highlight so it stays unmistakable at a glance.
-		box.border_color = HILITE
-		box.set_border_width_all(4)
-	elif not empty:
-		# Owned items are framed in their rarity colour.
-		box.border_color = rarity_col
-		box.set_border_width_all(3)
+	var key := "%s_%s_%s" % [empty, equipped, rarity_col.to_html()]
+	var box : StyleBoxFlat = _slot_style_cache.get(key)
+	if box == null:
+		box = StyleBoxFlat.new()
+		box.bg_color = SLOT_EMPTY if empty else SLOT_BG
+		box.set_corner_radius_all(6)
+		if equipped:
+			# Equipped item keeps the gold highlight so it stays unmistakable at a glance.
+			box.border_color = HILITE
+			box.set_border_width_all(4)
+		elif not empty:
+			# Owned items are framed in their rarity colour.
+			box.border_color = rarity_col
+			box.set_border_width_all(3)
+		_slot_style_cache[key] = box
 	btn.add_theme_stylebox_override("normal", box)
 	btn.add_theme_stylebox_override("hover", box)
 	btn.add_theme_stylebox_override("pressed", box)

@@ -32,6 +32,7 @@ func _ready() -> void:
 	$MainPanel/VBox/ClubhouseButton.pressed.connect(func() -> void: SceneManager.goto(SceneManager.CLUBHOUSE))
 	$MainPanel/VBox/ProShopButton.pressed.connect(func() -> void: SceneManager.goto(SceneManager.PRO_SHOP))
 	$MainPanel/VBox/HowToPlayButton.pressed.connect(func() -> void: SceneManager.goto(SceneManager.TUTORIAL))
+	$MainPanel/VBox/StatsButton.pressed.connect(func() -> void: SceneManager.goto(SceneManager.STATS))
 	$MainPanel/VBox/SettingsButton.pressed.connect(func() -> void: _show_only(settings_panel))
 	$MainPanel/VBox/ExitButton.pressed.connect(func() -> void: exit_dialog.popup_centered())
 

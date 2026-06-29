@@ -13,7 +13,8 @@ const UI = preload("res://scripts/ui_palette.gd")
 @onready var input_handler : Node        = $"../InputHandler"
 @onready var hole_gen      : Node        = $"../HoleGenerator"
 @onready var lbl_strokes   : Label         = $"../HUD/InfoCard/VBox/StrokeLabel"
-@onready var lbl_holepar   : Label         = $"../HUD/TopStrip/HoleParLabel"
+@onready var lbl_holepar   : Label         = $"../HUD/TopStrip/HoleParRow/HoleParLabel"
+@onready var wind_arrow    : Control       = $"../HUD/TopStrip/HoleParRow/WindArrow"
 @onready var lbl_points    : Label         = $"../HUD/InfoCard/VBox/Line2/PointsLabel"
 @onready var lbl_hazard    : Label         = $"../HUD/HazardBanner/HazardLabel"
 @onready var lbl_lie       : Label         = $"../HUD/InfoCard/VBox/Line2/LieLabel"
@@ -217,6 +218,7 @@ func _start_hole() -> void:
 	# the cup's overlap list hasn't refreshed after the teleport it still lists the ball
 	# from the prior sink -- which instantly re-triggers _on_cup_entered at 0 strokes.
 	ball.is_resting         = false
+	ball.wind               = _hole_data.get("wind", Vector3.ZERO)
 	ball.setup_terrain(hole_gen, _hole_data)
 
 	cup.global_position = _hole_data["cup_position"]
@@ -413,6 +415,15 @@ func _physics_process(_delta: float) -> void:
 	if not is_active or _penalty_active:
 		return
 
+	# Failsafe for the aim dart: it's a screen overlay anchored at the ball, and the camera
+	# follows the ball in flight -- so a dart left over from an input edge case (a stray drag,
+	# a lost touch-up) would ride along on top of the rolling ball. It must only ever show while
+	# the ball is aimable, so clear it the instant the ball is actually moving. The ball is
+	# stationary while frozen on the tee (is_resting is false there) or settled after a shot;
+	# "moving" is the in-flight/rolling state -- unfrozen and not yet resting.
+	if not ball.freeze and not ball.is_resting and aim_indicator.is_showing():
+		aim_indicator.clear_aim()
+
 	var pos : Vector3 = ball.global_position
 
 	if ball.is_resting:
@@ -458,16 +469,28 @@ func _update_hud() -> void:
 	if stroke_count > _last_strokes_shown:
 		_pop_label(lbl_strokes)
 	_last_strokes_shown = stroke_count
+	var wind : String = _wind_suffix()
+	wind_arrow.set_wind(_hole_data.get("wind", Vector3.ZERO))
 	if GameState.game_mode == "practice":
-		lbl_holepar.text = "PRACTICE  ·  HOLE %d  ·  PAR %d" % [GameState.current_hole, par]
+		lbl_holepar.text = "PRACTICE  ·  HOLE %d  ·  PAR %d%s" % [GameState.current_hole, par, wind]
 		lbl_points.text  = "Practice"
 	elif GameState.game_mode == "tournament":
 		# Tournaments earn no points; the points line carries the day name instead.
-		lbl_holepar.text = "HOLE %d / %d  ·  PAR %d" % [GameState.current_hole, GameState.holes_per_round, par]
+		lbl_holepar.text = "HOLE %d / %d  ·  PAR %d%s" % [GameState.current_hole, GameState.holes_per_round, par, wind]
 		lbl_points.text  = TournamentManager.day_name()
 	else:
-		lbl_holepar.text = "HOLE %d / %d  ·  PAR %d" % [GameState.current_hole, GameState.holes_per_round, par]
+		lbl_holepar.text = "HOLE %d / %d  ·  PAR %d%s" % [GameState.current_hole, GameState.holes_per_round, par, wind]
 		lbl_points.text  = "%d pts" % SaveManager.data.get("points", 0)
+
+# Wind speed appended to the top strip. The heading is shown by the WindArrow control that follows
+# the label (see wind_arrow.gd), so this text is just the speed. Trailing space leaves a gap before
+# the arrow. Empty string when the hole plays calm (the arrow hides itself too).
+func _wind_suffix() -> String:
+	var w : Vector3 = _hole_data.get("wind", Vector3.ZERO)
+	var mph : int = int(round(Vector2(w.x, w.z).length()))
+	if mph <= 0:
+		return ""
+	return "  ·  WIND %d " % mph
 
 # Soft fade-in of the HUD chrome as each hole opens, so it doesn't snap into place.
 func _intro_hud() -> void:

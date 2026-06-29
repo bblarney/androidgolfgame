@@ -24,12 +24,14 @@ const NUM_FS    : int = 22
 const LABEL_FS  : int = 15
 
 # Monochrome: every number and shape is drawn in plain white; the score-vs-par meaning is
-# carried entirely by the shape (square/circle, single/double), not by colour.
+# carried entirely by the shape (square/circle, single/double), not by colour. These whites are
+# a deliberate exception to the cream UI.INK palette text -- a printed-scorecard look.
 const INK       : Color = Color(1.0, 1.0, 1.0)
 const LABEL_COL : Color = Color(0.70, 0.74, 0.62)
 const LINE_COL  : Color = Color(1.0, 1.0, 1.0, 0.14)
 const HEADER_COL: Color = Color(1.0, 1.0, 1.0, 0.06)
-const HILITE_COL: Color = Color(1.0, 0.85, 0.25, 0.16)
+# Current-hole highlight: the shared broadcast gold (UI.ACCENT) at low alpha.
+static var HILITE_COL : Color = Color(UI.ACCENT, 0.16)
 
 var _numbers : Array = []
 var _pars    : Array = []

@@ -62,6 +62,13 @@ const TANGENTIAL_KEEP    : float = 0.72
 const CONTACT_EPS        : float = 0.06
 const CUP_SKIP_R         : float = 1.6
 
+# Wind: `wind` is a horizontal world vector whose length is the speed in mph (set per hole by
+# hole_manager from the generator). Only applied while airborne -- a tailwind/headwind/crosswind
+# pushes the carry, but it never shoves a ball that's rolling or at rest. Tuned so a stiff wind
+# genuinely moves the ball and has to be played around; raise the gain to make it bite harder.
+const WIND_FORCE_PER_MPH : float = 0.20
+var wind : Vector3 = Vector3.ZERO
+
 var is_grounded  := false
 var is_resting   := false
 var in_sand      : bool    = false
@@ -185,6 +192,11 @@ func _physics_process(delta: float) -> void:
 	is_grounded  = contact
 	_was_contact = contact
 	_prev_vn     = linear_velocity.dot(n)
+
+	# Wind only acts on a ball in flight (airborne after a shot): it drifts the carry without
+	# ever creeping a ball that has landed or is rolling out. Force is re-applied each step.
+	if _in_flight and not is_grounded and wind != Vector3.ZERO:
+		apply_central_force(wind * WIND_FORCE_PER_MPH)
 
 	# Rolling friction once grounded; light air drag while in flight.
 	if is_grounded:

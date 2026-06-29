@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/hole_manager.gd" id="1_manager"]
 [ext_resource type="Script" path="res://scripts/ball.gd" id="2_ball"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://scripts/club_selector.gd" id="8_clubsel"]
 [ext_resource type="Script" path="res://scripts/scorebug.gd" id="9_scorebug"]
 [ext_resource type="Script" path="res://scripts/tournament_scorebug.gd" id="10_tscore"]
+[ext_resource type="Script" path="res://scripts/wind_arrow.gd" id="11_windarrow"]
 
 [sub_resource type="SphereShape3D" id="1_bshape"]
 radius = 0.117
@@ -90,7 +91,11 @@ offset_right = 420.0
 offset_bottom = 74.0
 theme_override_constants/separation = 5
 
-[node name="HoleParLabel" type="Label" parent="HUD/TopStrip"]
+[node name="HoleParRow" type="HBoxContainer" parent="HUD/TopStrip"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="HoleParLabel" type="Label" parent="HUD/TopStrip/HoleParRow"]
 layout_mode = 2
 text = "HOLE 1 / 9   ·   PAR 4"
 theme_override_colors/font_color = Color(0.95, 0.98, 0.85, 1)
@@ -98,6 +103,12 @@ theme_override_constants/shadow_offset_x = 1
 theme_override_constants/shadow_offset_y = 2
 theme_override_colors/font_shadow_color = Color(0.0, 0.0, 0.0, 0.5)
 theme_override_font_sizes/font_size = 30
+
+[node name="WindArrow" type="Control" parent="HUD/TopStrip/HoleParRow"]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+size_flags_vertical = 4
+script = ExtResource("11_windarrow")
 
 [node name="AccentRule" type="ColorRect" parent="HUD/TopStrip"]
 custom_minimum_size = Vector2(170.0, 3.0)

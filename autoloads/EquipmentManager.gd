@@ -120,6 +120,9 @@ func _load_json(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {}
 	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		push_error("EquipmentManager: could not open %s (err %d)." % [path, FileAccess.get_open_error()])
+		return {}
 	var result = JSON.parse_string(file.get_as_text())
 	file.close()
 	return result if result is Dictionary else {}

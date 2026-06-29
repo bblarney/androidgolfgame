@@ -15,11 +15,12 @@ const SCORE_W   : float = 52.0
 const NAME_FS   : int   = 18
 const HEAD_FS   : int   = 15
 
-const PANEL_COL  : Color = Color(0.05, 0.10, 0.07, 0.78)
-const INK        : Color = Color(0.95, 0.98, 0.85)
-const SUBINK     : Color = Color(0.70, 0.80, 0.68)
-const USER_COL   : Color = Color(1.0, 0.85, 0.25, 0.22)
-const DANGER_INK : Color = Color(1.0, 0.55, 0.45)
+# Reuse the shared palette so this overlay tracks any future tweak to the HUD's colour identity
+# (see ui_palette.gd). USER_COL is the broadcast gold at low alpha for the player's row tint.
+const INK        : Color = UI.INK
+const SUBINK     : Color = UI.SUBINK
+static var USER_COL : Color = Color(UI.ACCENT, 0.22)
+const DANGER_INK : Color = UI.DANGER
 
 var _rows : Array = []   # cached standings entries to render
 

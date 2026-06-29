@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://dbkpmk6tgo2a4"]
+
+[ext_resource type="Script" path="res://scripts/stats.gd" id="1_stats"]
+
+[node name="Stats" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_stats")
+
+[node name="Bg" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.11, 0.2, 0.14, 1)

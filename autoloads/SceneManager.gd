@@ -11,6 +11,7 @@ const HOLE      := "res://scenes/hole.tscn"
 const CLUBHOUSE := "res://scenes/clubhouse.tscn"
 const PRO_SHOP  := "res://scenes/pro_shop.tscn"
 const TUTORIAL  := "res://scenes/tutorial.tscn"
+const STATS     := "res://scenes/stats.tscn"
 const TOURNAMENT_HUB := "res://scenes/tournament_hub.tscn"
 
 var target_scene: String = MAIN_MENU

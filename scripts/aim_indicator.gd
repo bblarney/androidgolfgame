@@ -25,6 +25,9 @@ func clear_aim() -> void:
 	_showing = false
 	queue_redraw()
 
+func is_showing() -> bool:
+	return _showing
+
 func _draw() -> void:
 	if not _showing:
 		return

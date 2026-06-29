@@ -33,10 +33,14 @@ func _load() -> void:
 	if saved.is_empty() or not saved.get("active", false):
 		state = _inactive_state()
 		return
-	# Numbers round-trip through JSON as floats; rebuild the field with clean ints.
+	# Numbers round-trip through JSON as floats; rebuild the field with clean ints. Guard against
+	# a corrupted save where "opponents" isn't an array of dicts so the load degrades gracefully.
 	var opponents: Array = []
-	for o in saved.get("opponents", []):
-		opponents.append({"name": str(o.get("name", "Player")), "total": int(o.get("total", 0)), "round": int(o.get("round", 0))})
+	var saved_opponents = saved.get("opponents", [])
+	if saved_opponents is Array:
+		for o in saved_opponents:
+			if o is Dictionary:
+				opponents.append({"name": str(o.get("name", "Player")), "total": int(o.get("total", 0)), "round": int(o.get("round", 0))})
 	state = {
 		"active":            true,
 		"complete":          saved.get("complete", false),

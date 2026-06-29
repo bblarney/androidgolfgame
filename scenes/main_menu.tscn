@@ -88,6 +88,12 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 30
 text = "HOW TO PLAY"
 
+[node name="StatsButton" type="Button" parent="MainPanel/VBox"]
+custom_minimum_size = Vector2(400.0, 64.0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "CAREER STATS"
+
 [node name="SettingsButton" type="Button" parent="MainPanel/VBox"]
 custom_minimum_size = Vector2(400.0, 64.0)
 layout_mode = 2

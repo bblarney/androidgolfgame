@@ -1,6 +1,8 @@
 extends Node
 
-const SAVE_PATH := "user://save.json"
+const SAVE_PATH    := "user://save.json"
+const BACKUP_PATH  := "user://save.bak.json"
+const CORRUPT_PATH := "user://save.corrupt.json"
 
 var data: Dictionary = {}
 
@@ -13,13 +15,47 @@ func load_save() -> void:
 		save()
 		return
 	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
-	var parsed = JSON.parse_string(file.get_as_text())
+	if file == null:
+		# An existing save we can't open (lock/permissions). Run on defaults this session but
+		# DON'T overwrite it -- the original is preserved until the player deliberately saves.
+		push_error("SaveManager: could not open %s (err %d); using defaults this session." % [SAVE_PATH, FileAccess.get_open_error()])
+		data = _default_save()
+		return
+	var text := file.get_as_text()
 	file.close()
-	data = parsed if parsed is Dictionary else _default_save()
+	var parsed = JSON.parse_string(text)
+	if not (parsed is Dictionary):
+		# Corrupt save: quarantine it for recovery instead of silently wiping all progress.
+		_quarantine_corrupt_save(text)
+		data = _default_save()
+		return
+	data = parsed
+	_ensure_stats()
 	_ensure_starter_items()
 	_ensure_loadout()
 	_ensure_shop()
 	_ensure_settings()
+
+func _quarantine_corrupt_save(text: String) -> void:
+	var dump := FileAccess.open(CORRUPT_PATH, FileAccess.WRITE)
+	if dump != null:
+		dump.store_string(text)
+		dump.close()
+	push_error("SaveManager: %s was corrupt; copied to %s and loaded defaults (progress NOT overwritten yet)." % [SAVE_PATH, CORRUPT_PATH])
+
+func _ensure_stats() -> void:
+	# Backfill the career-stats block (and any keys added after a save was created) so the
+	# stats screen and recorders can rely on every counter existing.
+	var defaults : Dictionary = _default_save()["stats"]
+	var stats : Dictionary = data.get("stats", {}) if data.get("stats", null) is Dictionary else {}
+	var changed := false
+	for key: String in defaults:
+		if not stats.has(key):
+			stats[key] = defaults[key]
+			changed = true
+	if changed:
+		data["stats"] = stats
+		save()
 
 func _ensure_starter_items() -> void:
 	# Backfills clubs added after a save was already created, so existing
@@ -86,7 +122,13 @@ func set_volume(key: String, value: float) -> void:
 	save()
 
 func save() -> void:
+	# Keep one generation of backup so a botched write or later corruption stays recoverable.
+	if FileAccess.file_exists(SAVE_PATH):
+		DirAccess.copy_absolute(SAVE_PATH, BACKUP_PATH)
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if file == null:
+		push_error("SaveManager: could not write %s (err %d); progress not persisted." % [SAVE_PATH, FileAccess.get_open_error()])
+		return
 	file.store_string(JSON.stringify(data, "\t"))
 	file.close()
 
@@ -113,6 +155,10 @@ func record_hole_complete(strokes: int, par: int) -> int:
 		stats["eagles"] = stats.get("eagles", 0) + 1
 	elif diff == -1:
 		stats["birdies"] = stats.get("birdies", 0) + 1
+	elif diff == 1:
+		stats["bogeys"] = stats.get("bogeys", 0) + 1
+	if strokes - par < stats.get("best_hole_vs_par", 99):
+		stats["best_hole_vs_par"] = strokes - par
 	data["stats"] = stats
 	var points := _points_for_score(strokes, par)
 	add_points(points)
@@ -165,9 +211,11 @@ func _default_save() -> Dictionary:
 			"rounds_played": 0,
 			"holes_completed": 0,
 			"best_round_score": 9999,
+			"best_hole_vs_par": 99,
 			"total_strokes": 0,
 			"eagles": 0,
 			"birdies": 0,
+			"bogeys": 0,
 			"hole_in_ones": 0
 		},
 		"current_round_seed": 0,
