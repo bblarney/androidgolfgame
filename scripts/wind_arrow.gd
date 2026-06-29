@@ -9,18 +9,19 @@ extends Control
 const UI = preload("res://scripts/ui_palette.gd")
 
 # Screen-space angle the arrow points (radians, 0 = right, measured CW because screen Y is down).
-# NAN means "calm" -- nothing is drawn.
+# NAN means "calm" -- a neutral ring is drawn in place of the arrow so the indicator never vanishes.
 var _angle : float = NAN
 var _strength : float = 0.0   # 0..1, drives the colour ramp
 
 # A wind speed at/above this (mph) reads as full-strength coral on the ramp.
 const FULL_STRENGTH_MPH : float = 28.0
 
-# Set from hole_manager with the hole's world wind vector. Empty/zero wind hides the arrow.
+# Set from hole_manager with the hole's world wind vector. Calm holes (zero wind) draw a ring.
 func set_wind(w: Vector3) -> void:
 	var mph : float = Vector2(w.x, w.z).length()
 	if mph <= 0.0:
 		_angle = NAN
+		_strength = 0.0
 	else:
 		# Screen-up = +Z (downfield) and screen-right = -X (the view is turned 180 deg about Y),
 		# so the screen-space drift is (-w.x, -w.z) in (right, down) coords.
@@ -29,10 +30,13 @@ func set_wind(w: Vector3) -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	if is_nan(_angle):
-		return
 	var c : Vector2 = size * 0.5
-	var s : float = minf(size.x, size.y) * 0.46   # arrow half-length
+	var r : float = minf(size.x, size.y) * 0.46   # extent used by both the ring and the arrow
+	if is_nan(_angle):
+		# Calm hole: a small neutral ring stands in for the arrow so the strip layout is unchanged.
+		draw_arc(c, r * 0.42, 0.0, TAU, 24, UI.METER, maxf(1.5, r * 0.14), true)
+		return
+	var s : float = r   # arrow half-length
 	var col : Color = UI.METER.lerp(UI.ACCENT, _strength) if _strength < 0.5 \
 		else UI.ACCENT.lerp(UI.DANGER, (_strength - 0.5) * 2.0)
 	# Classic arrow outline, modelled pointing right then rotated into the wind heading.

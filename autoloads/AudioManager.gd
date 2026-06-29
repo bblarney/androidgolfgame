@@ -1,10 +1,10 @@
 extends Node
 # Single audio hub for the whole game. Owns the bus layout (built in code -- there is no
 # default_bus_layout.tres), the procedurally generated SFX/music streams (see audio_synth.gd), a
-# small pool of players so overlapping sounds don't cut each other, and the menu<->course music
-# crossfade. Gameplay code never touches AudioStreamPlayers directly -- it calls play_sfx() and
-# play_music() on this autoload, which survives scene changes so music continues seamlessly across
-# menu transitions.
+# small pool of players so overlapping sounds don't cut each other, and the music crossfade (menu
+# music fades out on entering gameplay and back in on returning). Gameplay code never touches
+# AudioStreamPlayers directly -- it calls play_sfx() / play_music() / stop_music() on this autoload,
+# which survives scene changes so music continues seamlessly across menu transitions.
 #
 # Loaded after SaveManager (see project.godot [autoload] order) because it reads persisted volumes
 # on boot.
@@ -97,9 +97,9 @@ func play_sfx(sfx_name: String, pitch: float = 1.0, volume_db: float = 0.0) -> v
 
 # --- music ------------------------------------------------------------------
 
-# Request an ambient track ("menu" or "golf"). No-op if it's already the active track, so moving
-# between menu screens never restarts the music. The loop is generated on a worker thread the first
-# time it's asked for (then cached), so boot and scene loads aren't blocked by synthesis.
+# Request a background track (currently just "menu"). No-op if it's already the active track, so
+# moving between menu screens never restarts the music. The loop is generated on a worker thread the
+# first time it's asked for (then cached), so boot and scene loads aren't blocked by synthesis.
 func play_music(track: String) -> void:
 	if track == _current_track:
 		return
@@ -124,6 +124,19 @@ func _on_music_ready(track: String, wav: AudioStreamWAV) -> void:
 	# Only start it if it's still the track we want (the player may have moved on while we built it).
 	if track == _current_track:
 		_crossfade_to(wav)
+
+# Fade the current track out to silence (used when entering gameplay, which runs with SFX only).
+# Safe to call when nothing is playing. A track requested mid-fade by play_music() still crosses in
+# normally.
+func stop_music() -> void:
+	if _current_track == "":
+		return
+	_current_track = ""
+	var outgoing := _music_active
+	if outgoing.playing:
+		var tout := create_tween()
+		tout.tween_property(outgoing, "volume_db", -80.0, FADE)
+		tout.tween_callback(outgoing.stop)
 
 func _crossfade_to(stream: AudioStream) -> void:
 	var incoming := _music_b if _music_active == _music_a else _music_a

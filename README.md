@@ -19,7 +19,7 @@ birdies through full tournaments.
   clubs and balls, each with their own stats and visuals.
 - **Clubhouse loadout** — own a bag of gear and manage which clubs and ball you bring to the course.
 - **Game modes** — practice, 9-hole, and 18-hole rounds, plus tournament play.
-- **Procedural audio** — ambient music and club/ball sound effects with in-game volume settings.
+- **Procedural audio** — upbeat menu music and club/ball sound effects with in-game volume settings.
 
 ## Getting Started
 

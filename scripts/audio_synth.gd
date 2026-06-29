@@ -1,23 +1,17 @@
 extends RefCounted
-# Procedural audio synthesis. The game ships no audio asset files -- every sound (SFX and the two
-# ambient music loops) is generated as an AudioStreamWAV here at runtime, matching the codebase's
+# Procedural audio synthesis. The game ships no audio asset files -- every sound (SFX and the menu
+# music loop) is generated as an AudioStreamWAV here at runtime, matching the codebase's
 # "generate it in code" approach (procedural holes, items, UI styling). AudioManager owns the
 # generated streams; this file is pure, stateless factories in the ui_palette.gd idiom:
 #   const Synth := preload("res://scripts/audio_synth.gd")  ->  Synth.make_club_hit()
 #
 # All output is mono 16-bit PCM. Mix rate is modest (mobile-friendly) and SFX are tiny; the music
-# loops are a few seconds each (~1 MB) and are deliberately built to loop seamlessly (see _to_wav
-# and make_music).
+# loop is a few seconds (~1 MB) and is deliberately built to loop seamlessly (see _to_wav and
+# make_music).
 
 const SR := 22050   # mix rate for everything below
 
 # --- low-level helpers ------------------------------------------------------
-
-# Triangle wave from a running phase (cycles, not radians). Softer-edged than a saw, brighter than
-# a sine -- used for the music pluck so it cuts through the pad without sounding harsh.
-static func _tri(phase: float) -> float:
-	var p := phase - floorf(phase)
-	return 4.0 * absf(p - 0.5) - 1.0
 
 # Snap a frequency so it completes a whole number of cycles across `total` seconds. A buffer whose
 # every oscillator is periodic over its own length loops with zero seam -- this is how make_music
@@ -127,12 +121,19 @@ static func _ping(t: float, at: float, freq: float, tau: float) -> float:
 
 # --- music ------------------------------------------------------------------
 
-# Generative ambient loop. "menu" is a calm pad-only swell; "golf" is the same harmony, a little
-# faster, with a soft triangle pluck on top for gentle movement. Both run a I-V-vi-IV progression
-# in C major and loop seamlessly because every oscillator is snapped to whole cycles over the loop
-# (see _snap) and the chord crossfade / pluck envelopes tile the loop length exactly.
-static func make_music(style: String) -> AudioStreamWAV:
-	var chord_dur : float = 3.0 if style == "menu" else 2.2
+# Triangle wave from a running phase (cycles, not radians). Softer-edged than a saw, brighter than
+# a sine -- used for the arpeggio so it cuts through the pad without sounding harsh.
+static func _tri(phase: float) -> float:
+	var p := phase - floorf(phase)
+	return 4.0 * absf(p - 0.5) - 1.0
+
+# The menu music: a warm I-V-vi-IV pad in C major, lifted into something more upbeat by a steady
+# triangle arpeggio skipping across the chord tones and a soft plucked bass on the off-beats. Loops
+# seamlessly because every oscillator is snapped to whole cycles over the loop (see _snap) and the
+# chord crossfade and the arpeggio/bass patterns tile the loop length exactly. (`style` is accepted
+# for AudioManager's track-name call convention; there is only the one track.)
+static func make_music(_style: String = "menu") -> AudioStreamWAV:
+	var chord_dur := 2.0                   # quicker harmonic rhythm than the old calm pad
 	var total := chord_dur * 4.0
 	var n := int(SR * total)
 
@@ -154,9 +155,9 @@ static func make_music(style: String) -> AudioStreamWAV:
 			voices.append({"f": _snap(f0 * 2.0, total), "a": 0.3})
 		voiced.append(voices)
 
-	var is_golf := style == "golf"
-	var beat := chord_dur / 2.0           # two plucks per chord
-	var trem_f := _snap(0.18, total)      # slow breathing on the pad
+	var trem_f := _snap(0.5, total)        # a touch quicker breathing on the pad
+	var beat := chord_dur / 4.0            # four arpeggio notes per chord (~120 BPM feel)
+	var arp_pattern := [0, 1, 2, 1]        # gentle up-and-back across the triad
 
 	var buf := PackedFloat32Array()
 	buf.resize(n)
@@ -173,16 +174,24 @@ static func make_music(style: String) -> AudioStreamWAV:
 		var pad := _voices_at(voiced[idx], t) * (1.0 - blend) \
 			+ _voices_at(voiced[(idx + 1) % 4], t) * blend
 		pad *= 1.0 + 0.08 * sin(TAU * trem_f * t)
+		var s := pad * 0.40
 
-		var s := pad * 0.5
-		if is_golf:
-			var bseg := t / beat
-			var blocal := (bseg - floorf(bseg)) * beat   # seconds into this beat
-			var note : float = float(chords[idx][int(bseg) % 3]) * 2.0
-			var penv := minf(1.0, blocal / 0.008) * exp(-blocal / 0.18)
-			s += _tri(_snap(note, total) * t) * penv * 0.32
+		# Arpeggio: one chord tone per beat (an octave up), plucked as a bright triangle.
+		var bseg := t / beat
+		var bi := int(bseg)
+		var blocal := (bseg - floorf(bseg)) * beat        # seconds into this beat
+		var note : float = float(chords[idx][arp_pattern[bi % 4]]) * 2.0
+		var aenv := minf(1.0, blocal / 0.006) * exp(-blocal / 0.20)
+		s += _tri(_snap(note, total) * t) * aenv * 0.26
+
+		# Bass: root an octave down, plucked on the first and third beats for a light bounce.
+		if bi % 2 == 0:
+			var bass : float = float(chords[idx][0]) * 0.5
+			var benv := minf(1.0, blocal / 0.005) * exp(-blocal / 0.30)
+			s += sin(TAU * _snap(bass, total) * t) * benv * 0.30
+
 		buf[i] = s
-	return _to_wav(buf, 0.72, true)
+	return _to_wav(buf, 0.78, true)
 
 static func _voices_at(voices: Array, t: float) -> float:
 	var s := 0.0

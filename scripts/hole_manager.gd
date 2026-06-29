@@ -195,7 +195,7 @@ func _start_hole() -> void:
 	_hole_data   = hole_gen.generate_hole(GameState.get_hole_seed(), GameState.get_hole_biome())
 	_apply_biome_atmosphere(_hole_data.get("biome", "parkland"))
 	hole_gen.build_terrain(_hole_data, course)
-	AudioManager.play_music("golf")
+	AudioManager.stop_music()   # gameplay runs with SFX only -- no background track
 
 	par          = _hole_data["par"]
 	stroke_count = 0
@@ -484,13 +484,12 @@ func _update_hud() -> void:
 
 # Wind speed appended to the top strip. The heading is shown by the WindArrow control that follows
 # the label (see wind_arrow.gd), so this text is just the speed. Trailing space leaves a gap before
-# the arrow. Empty string when the hole plays calm (the arrow hides itself too).
+# the arrow. Always shown -- calm holes read "WIND 0 km/h" (the arrow draws a neutral ring). The
+# stored wind length is in mph (see hole_generator), converted here for display.
 func _wind_suffix() -> String:
 	var w : Vector3 = _hole_data.get("wind", Vector3.ZERO)
-	var mph : int = int(round(Vector2(w.x, w.z).length()))
-	if mph <= 0:
-		return ""
-	return "  ·  WIND %d " % mph
+	var kmh : int = int(round(Vector2(w.x, w.z).length() * 1.60934))
+	return "  ·  WIND %d km/h " % kmh
 
 # Soft fade-in of the HUD chrome as each hole opens, so it doesn't snap into place.
 func _intro_hud() -> void:
