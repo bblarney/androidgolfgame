@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Birdie Blitz launcher icon: golf ball + flag on brand blue -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3fa0d6"/>
+      <stop offset="1" stop-color="#2e8cc7"/>
+    </linearGradient>
+    <radialGradient id="ball" cx="0.38" cy="0.34" r="0.75">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d7dee3"/>
+    </radialGradient>
+  </defs>
+
+  <!-- background -->
+  <rect width="512" height="512" fill="url(#sky)"/>
+
+  <!-- green mound -->
+  <path d="M0 392 Q256 332 512 392 L512 512 L0 512 Z" fill="#5bbf57"/>
+  <path d="M0 392 Q256 332 512 392 L512 414 Q256 356 0 414 Z" fill="#6fd06a"/>
+
+  <!-- flag pole -->
+  <rect x="330" y="150" width="10" height="210" rx="5" fill="#e8edf0"/>
+  <circle cx="335" cy="150" r="9" fill="#e8edf0"/>
+  <!-- flag -->
+  <path d="M340 158 L432 184 L340 210 Z" fill="#e94b4b"/>
+  <path d="M340 158 L432 184 L386 197 L340 210 Z" fill="#d83b3b" opacity="0.5"/>
+
+  <!-- hole shadow -->
+  <ellipse cx="335" cy="362" rx="34" ry="11" fill="#3c7d3a" opacity="0.5"/>
+
+  <!-- golf ball -->
+  <circle cx="180" cy="318" r="92" fill="url(#ball)"/>
+  <g fill="#c3ccd2">
+    <circle cx="180" cy="278" r="8"/>
+    <circle cx="148" cy="300" r="8"/>
+    <circle cx="212" cy="300" r="8"/>
+    <circle cx="180" cy="322" r="8"/>
+    <circle cx="146" cy="344" r="8"/>
+    <circle cx="214" cy="344" r="8"/>
+    <circle cx="180" cy="366" r="8"/>
+    <circle cx="120" cy="322" r="7"/>
+    <circle cx="240" cy="322" r="7"/>
+  </g>
+</svg>

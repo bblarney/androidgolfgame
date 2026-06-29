@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
+  <!-- Boot splash logo. Shown centered over the engine bg_color (brand blue), so the
+       badge sits on transparent space. Text is intentionally omitted because Godot's
+       SVG importer does not reliably render <text>; drop in a designed splash.png with
+       the "Birdie Blitz" wordmark later if desired (see RELEASE.md). -->
+  <defs>
+    <radialGradient id="ball" cx="0.38" cy="0.34" r="0.75">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d7dee3"/>
+    </radialGradient>
+    <linearGradient id="badge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.04"/>
+    </linearGradient>
+  </defs>
+
+  <!-- soft badge -->
+  <circle cx="300" cy="300" r="250" fill="url(#badge)"/>
+  <circle cx="300" cy="300" r="250" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="4"/>
+
+  <!-- green arc -->
+  <path d="M70 392 Q300 320 530 392 L530 470 Q300 410 70 470 Z" fill="#5bbf57"/>
+  <path d="M70 392 Q300 320 530 392 L530 414 Q300 348 70 414 Z" fill="#6fd06a"/>
+
+  <!-- flag -->
+  <rect x="378" y="150" width="11" height="232" rx="5" fill="#e8edf0"/>
+  <circle cx="383" cy="150" r="10" fill="#e8edf0"/>
+  <path d="M389 159 L492 188 L389 217 Z" fill="#e94b4b"/>
+
+  <!-- golf ball -->
+  <circle cx="212" cy="332" r="104" fill="url(#ball)"/>
+  <g fill="#c3ccd2">
+    <circle cx="212" cy="288" r="9"/>
+    <circle cx="176" cy="312" r="9"/>
+    <circle cx="248" cy="312" r="9"/>
+    <circle cx="212" cy="336" r="9"/>
+    <circle cx="174" cy="360" r="9"/>
+    <circle cx="250" cy="360" r="9"/>
+    <circle cx="212" cy="384" r="9"/>
+    <circle cx="146" cy="336" r="8"/>
+    <circle cx="278" cy="336" r="8"/>
+  </g>
+</svg>

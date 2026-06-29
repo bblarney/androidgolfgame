@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Adaptive icon foreground layer: ball + flag, transparent background.
+       Content is kept inside the central ~66% "safe zone" (≈ x/y 96–416) so the
+       launcher's icon mask never clips it. -->
+  <defs>
+    <radialGradient id="ball" cx="0.38" cy="0.34" r="0.75">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d7dee3"/>
+    </radialGradient>
+  </defs>
+
+  <g transform="translate(256 268) scale(0.78) translate(-256 -268)">
+    <!-- flag pole -->
+    <rect x="330" y="150" width="10" height="210" rx="5" fill="#e8edf0"/>
+    <circle cx="335" cy="150" r="9" fill="#e8edf0"/>
+    <!-- flag -->
+    <path d="M340 158 L432 184 L340 210 Z" fill="#e94b4b"/>
+
+    <!-- golf ball -->
+    <circle cx="180" cy="318" r="92" fill="url(#ball)"/>
+    <g fill="#c3ccd2">
+      <circle cx="180" cy="278" r="8"/>
+      <circle cx="148" cy="300" r="8"/>
+      <circle cx="212" cy="300" r="8"/>
+      <circle cx="180" cy="322" r="8"/>
+      <circle cx="146" cy="344" r="8"/>
+      <circle cx="214" cy="344" r="8"/>
+      <circle cx="180" cy="366" r="8"/>
+      <circle cx="120" cy="322" r="7"/>
+      <circle cx="240" cy="322" r="7"/>
+    </g>
+  </g>
+</svg>

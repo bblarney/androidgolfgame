@@ -11,9 +11,16 @@ config_version=5
 [application]
 
 config/name="Birdie Blitz"
+config/version="1.0.0"
+config/description="Drag-to-shoot 3D golf over endless procedurally generated holes. Earn points, raid the pro shop for randomized clubs and balls, and chase birdies across changing biomes."
 run/main_scene="res://scenes/loading_screen.tscn"
 config/features=PackedStringArray("4.6", "Mobile")
 config/run/main_scene="res://scenes/loading_screen.tscn"
+config/icon="res://assets/icon.svg"
+boot_splash/bg_color=Color(0.18, 0.55, 0.78, 1)
+boot_splash/image="res://assets/splash.png"
+boot_splash/fullsize=true
+boot_splash/use_filter=true
 
 [autoload]
 

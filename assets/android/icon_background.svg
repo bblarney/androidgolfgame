@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Adaptive icon background layer: full-bleed brand blue with green mound.
+       The OS masks this to the launcher's icon shape, so it must fill the canvas. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3fa0d6"/>
+      <stop offset="1" stop-color="#2e8cc7"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#sky)"/>
+  <path d="M0 392 Q256 332 512 392 L512 512 L0 512 Z" fill="#5bbf57"/>
+  <path d="M0 392 Q256 332 512 392 L512 414 Q256 356 0 414 Z" fill="#6fd06a"/>
+</svg>
