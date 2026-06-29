@@ -103,6 +103,7 @@ var next_button  : Button
 
 
 func _ready() -> void:
+	AudioManager.play_music("menu")
 	_build_ui()
 	_show_slide()
 

@@ -40,6 +40,7 @@ var content : Control          # current view root; cleared and rebuilt on each 
 var confirm : ConfirmationDialog
 
 func _ready() -> void:
+	AudioManager.play_music("menu")
 	confirm = ConfirmationDialog.new()
 	confirm.title = "Withdraw"
 	confirm.dialog_text = "Withdraw from the tournament? All progress is lost."

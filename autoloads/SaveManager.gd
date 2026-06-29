@@ -19,6 +19,7 @@ func load_save() -> void:
 	_ensure_starter_items()
 	_ensure_loadout()
 	_ensure_shop()
+	_ensure_settings()
 
 func _ensure_starter_items() -> void:
 	# Backfills clubs added after a save was already created, so existing
@@ -59,6 +60,29 @@ func _ensure_shop() -> void:
 		data["shop"]["offerings"] = []
 	if not (data.get("gen_counter", null) is float or data.get("gen_counter", null) is int):
 		data["gen_counter"] = 0
+	save()
+
+func _ensure_settings() -> void:
+	# Audio volumes (0..1), read by AudioManager on boot. Backfilled so saves made before audio
+	# existed gain sensible defaults instead of muting the game.
+	var defaults := {"master_volume": 0.8, "music_volume": 0.8, "sfx_volume": 0.8}
+	var settings : Dictionary = data.get("settings", {}) if data.get("settings", null) is Dictionary else {}
+	var changed := false
+	for key: String in defaults:
+		if not settings.has(key):
+			settings[key] = defaults[key]
+			changed = true
+	if changed:
+		data["settings"] = settings
+		save()
+
+func get_volume(key: String) -> float:
+	return data.get("settings", {}).get(key, 0.8)
+
+func set_volume(key: String, value: float) -> void:
+	if not (data.get("settings", null) is Dictionary):
+		data["settings"] = {}
+	data["settings"][key] = value
 	save()
 
 func save() -> void:
@@ -156,5 +180,6 @@ func _default_save() -> Dictionary:
 		"generated_clubs": {},
 		"generated_balls": {},
 		"shop": {"offerings": []},
-		"gen_counter": 0
+		"gen_counter": 0,
+		"settings": {"master_volume": 0.8, "music_volume": 0.8, "sfx_volume": 0.8}
 	}

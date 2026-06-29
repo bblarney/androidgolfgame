@@ -164,6 +164,7 @@ func _apply_biome_atmosphere(biome: String) -> void:
 
 func _connect_signals() -> void:
 	ball.ball_resting.connect(_on_ball_resting)
+	ball.ball_bounced.connect(_on_ball_bounced)
 	ball.entered_hazard.connect(_on_hazard)
 	cup.body_entered.connect(_on_cup_entered)
 	input_handler.shot_taken.connect(_on_shot_taken)
@@ -193,6 +194,7 @@ func _start_hole() -> void:
 	_hole_data   = hole_gen.generate_hole(GameState.get_hole_seed(), GameState.get_hole_biome())
 	_apply_biome_atmosphere(_hole_data.get("biome", "parkland"))
 	hole_gen.build_terrain(_hole_data, course)
+	AudioManager.play_music("golf")
 
 	par          = _hole_data["par"]
 	stroke_count = 0
@@ -245,6 +247,8 @@ func _start_hole() -> void:
 func _on_shot_taken(direction: Vector3, power: float) -> void:
 	aim_indicator.clear_aim()
 	club.play_swing()
+	# A firmer drag cracks louder and brighter; a gentle putt taps softly. One stream, shaped here.
+	AudioManager.play_sfx("club_hit", lerpf(0.82, 1.28, power), lerpf(-9.0, 1.0, power))
 	# Hide the tee peg the moment the ball is struck so it isn't left under the flying ball.
 	# It is NOT freed: if this shot is penalised back to the tee, the ball re-tees and the
 	# peg is shown again (see _refresh_tee_peg).
@@ -263,6 +267,19 @@ func _on_ball_resting() -> void:
 		input_handler.can_shoot = true
 		club.show_at(ball.global_position)
 		_update_lie()
+
+# Turn a ball-landing reflection into a thud. Harder impacts hit louder/lower; sand reads as a
+# dull plug. Very soft taps are skipped so a ball trickling along doesn't chatter.
+func _on_ball_bounced(strength: float, surface: String) -> void:
+	if strength < 1.2:
+		return
+	var loud : float = clampf(strength / 9.0, 0.0, 1.0)
+	var vol  : float = lerpf(-14.0, -2.0, loud)
+	var pitch : float = lerpf(1.05, 0.8, loud)
+	if surface == "sand":
+		vol -= 4.0
+		pitch *= 0.85
+	AudioManager.play_sfx("bounce", pitch, vol)
 
 func _on_hazard() -> void:
 	_trigger_penalty()
@@ -299,6 +316,7 @@ func _trigger_water_penalty() -> void:
 	_update_hud()
 	# The ball has already settled in the basin (water is judged at rest now); hold the
 	# penalty message on it where it lies, then replay from where the shot was struck.
+	AudioManager.play_sfx("splash")
 	lbl_hazard.text = "WATER HAZARD   +1"
 	hazard_banner.visible = true
 	var tin := create_tween()
@@ -335,6 +353,7 @@ func _on_cup_entered(body: Node) -> void:
 	is_active = false
 	input_handler.can_shoot = false
 	aim_indicator.clear_aim()
+	AudioManager.play_sfx("cup_drop")
 	await _sink_ball()
 
 	var hole_num : int = GameState.current_hole

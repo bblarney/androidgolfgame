@@ -43,6 +43,7 @@ var box_overlay : Control
 
 
 func _ready() -> void:
+	AudioManager.play_music("menu")
 	randomize()
 	_load_offerings()
 	_build_ui()

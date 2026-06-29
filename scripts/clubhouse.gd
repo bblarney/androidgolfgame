@@ -61,6 +61,7 @@ var current_items    : Array = []     # item dicts currently shown in the grid
 
 
 func _ready() -> void:
+	AudioManager.play_music("menu")
 	_build_overview()
 	_build_submenu()
 	_show_overview()

@@ -18,6 +18,7 @@ config/run/main_scene="res://scenes/loading_screen.tscn"
 [autoload]
 
 SaveManager="*res://autoloads/SaveManager.gd"
+AudioManager="*res://autoloads/AudioManager.gd"
 EquipmentManager="*res://autoloads/EquipmentManager.gd"
 GameState="*res://autoloads/GameState.gd"
 TournamentManager="*res://autoloads/TournamentManager.gd"

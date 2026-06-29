@@ -2,13 +2,17 @@ extends RigidBody3D
 
 signal ball_resting
 signal entered_hazard
+# Fired when the ball reflects off the turf on landing. `strength` is the into-surface impact
+# speed (m/s); `surface` is the lie it struck. Carries no audio knowledge itself -- hole_manager
+# turns it into a bounce SFX -- so ball.gd stays presentation-agnostic.
+signal ball_bounced(strength: float, surface: String)
 
 @onready var ground_ray: RayCast3D = $GroundRay
 @onready var ball_mesh : MeshInstance3D = $BallMesh
 
 const BALL_RADIUS      : float = 0.117
 const RESTING_SPEED    : float = 0.35
-# Derived from v = ω·r (rolling without slipping) so this stays correct if BALL_RADIUS
+# Derived from v = Ï‰Â·r (rolling without slipping) so this stays correct if BALL_RADIUS
 # ever changes again -- a fixed constant here previously broke when the ball shrank.
 const RESTING_ANGULAR  : float = (RESTING_SPEED / BALL_RADIUS) * 1.2
 const RESTING_TIME     : float = 0.45
@@ -154,6 +158,7 @@ func _physics_process(delta: float) -> void:
 				var gp : Vector3 = global_position
 				gp.y = h + BALL_RADIUS + CONTACT_EPS
 				global_position = gp
+				ball_bounced.emit(into, surface)
 
 		# Safety net against tunnelling. The faceted collider can let a fast ball punch
 		# straight THROUGH the terrain -- most easily over the cup, where the terrain mesh is
