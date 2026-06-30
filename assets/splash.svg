@@ -2,7 +2,7 @@
   <!-- Boot splash logo. Shown centered over the engine bg_color (brand blue), so the
        badge sits on transparent space. Text is intentionally omitted because Godot's
        SVG importer does not reliably render <text>; drop in a designed splash.png with
-       the "Birdie Blitz" wordmark later if desired (see RELEASE.md). -->
+       the "Greenside" wordmark later if desired (see RELEASE.md). -->
   <defs>
     <radialGradient id="ball" cx="0.38" cy="0.34" r="0.75">
       <stop offset="0" stop-color="#ffffff"/>

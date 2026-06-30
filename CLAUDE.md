@@ -1,4 +1,4 @@
-# Birdie Blitz
+# Greenside: 3D Golf
 
 A mobile **3D golf game** built in **Godot 4.6** (GDScript), targeting Android. Drag-to-shoot
 gameplay over procedurally generated holes, a points economy, a pro shop with procedurally

@@ -1,4 +1,4 @@
-# Releasing Birdie Blitz to the Google Play Store
+# Releasing Greenside: 3D Golf to the Google Play Store
 
 This is the checklist for cutting an Android release. The repo already has the in-project pieces
 wired up (app version, icon, boot splash, and a starter `export_presets.cfg`). The steps below are
@@ -12,7 +12,7 @@ the ones that need the Godot editor's tooling, a Google account, or your sign-of
 - `assets/icon.svg`: launcher icon (golf ball + flag on brand blue).
 - `assets/android/icon_foreground.svg` + `icon_background.svg`: adaptive icon layers.
 - `assets/splash.png`: boot splash logo (rendered; `assets/splash.svg` is the editable source).
-- `export_presets.cfg` (gitignored): Android preset — package `com.brett.birdieblitz`,
+- `export_presets.cfg` (gitignored): Android preset — package `com.brett.greenside`,
   versionCode 1, min SDK 21, target SDK 35, arm64-v8a + armeabi-v7a, **no permissions**, AAB
   output, icons wired. **Signing is left blank for you (step 2).**
 
@@ -28,15 +28,15 @@ the ones that need the Godot editor's tooling, a Google account, or your sign-of
 ### 2. Create a RELEASE keystore — and never lose it
 Losing this key means you can permanently lose the ability to update the app.
 ```
-keytool -genkey -v -keystore birdieblitz-release.keystore \
-  -alias birdieblitz -keyalg RSA -keysize 2048 -validity 10000
+keytool -genkey -v -keystore greenside-release.keystore \
+  -alias greenside -keyalg RSA -keysize 2048 -validity 10000
 ```
 - Store the `.keystore` file and its passwords somewhere safe and backed up.
 - **Do not commit it** (it's covered by `.gitignore` patterns; double-check).
 - In **Project → Export → Android**, fill in the **Release** keystore path, alias, and passwords.
 
 ### 3. Confirm app identity
-- **Package name**: `com.brett.birdieblitz` is a placeholder. Pick your final reverse-domain id —
+- **Package name**: `com.brett.greenside` is a placeholder. Pick your final reverse-domain id —
   it is **permanent** once published. Update it in the export preset.
 - On every new upload, bump `version/code` (integer) and usually `version/name` /
   `project.godot config/version`.
@@ -45,7 +45,7 @@ keytool -genkey -v -keystore birdieblitz-release.keystore \
 
 ### 4. Export the signed AAB
 - **Project → Export → Android**, ensure **Use Gradle Build** is on and **Export Format = AAB**.
-- **Export Project** → `build/birdie-blitz.aab` (Play requires an App Bundle, not an APK).
+- **Export Project** → `build/greenside.aab` (Play requires an App Bundle, not an APK).
 - For quick on-device testing you can also export an **APK** and sideload it.
 
 ### 5. Verify on a real device
@@ -78,7 +78,7 @@ keytool -genkey -v -keystore birdieblitz-release.keystore \
 - When happy, promote to **Production** with a **staged rollout**.
 
 ## Optional polish before launch
-- A designed **splash.png** with the "Birdie Blitz" wordmark. The current `assets/splash.png` (the
+- A designed **splash.png** with the "Greenside" wordmark. The current `assets/splash.png` (the
   boot image; `splash.svg` is its editable source) is text-free because the boot splash only
   supports PNG and Godot's SVG importer doesn't render text reliably. Re-render or replace
   `assets/splash.png` to add a wordmark.

@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="Birdie Blitz"
+config/name="Greenside: 3D Golf"
 config/version="1.0.0"
 config/description="Drag-to-shoot 3D golf over endless procedurally generated holes. Earn points, raid the pro shop for randomized clubs and balls, and chase birdies across changing biomes."
 run/main_scene="res://scenes/loading_screen.tscn"

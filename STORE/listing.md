@@ -1,10 +1,10 @@
-# Google Play Store Listing — Birdie Blitz
+# Google Play Store Listing — Greenside: 3D Golf
 
 Drafts for the Play Console "Main store listing" page. Tune wording before publishing.
 
 ## App name (max 30 chars)
 ```
-Birdie Blitz
+Greenside: 3D Golf
 ```
 
 ## Short description (max 80 chars)
@@ -14,7 +14,7 @@ Drag-to-shoot 3D golf over endless procedural holes. Chase birdies, loot clubs.
 
 ## Full description (max 4000 chars)
 ```
-Birdie Blitz is a pick-up-and-play 3D golf game built for one-handed phone sessions.
+Greenside is a pick-up-and-play 3D golf game built for one-handed phone sessions.
 
 Pull back, aim, and let go — the slingshot drag-to-shoot controls take a second to learn and a
 round to master. Every hole is procedurally generated, so the course is never the same twice:
@@ -66,5 +66,5 @@ Capture these on a real phone or in the editor at phone resolution (portrait):
 Host `STORE/privacy-policy.md` somewhere public (GitHub Pages, a Gist, or a simple site) and paste
 the URL into Play Console → App content → Privacy policy.
 ```
-https://<your-host>/birdie-blitz/privacy-policy
+https://<your-host>/greenside/privacy-policy
 ```

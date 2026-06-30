@@ -18,7 +18,7 @@ const ACCENT   := UI.METER
 #   {"body": "..."}                 -> plain bullet
 const SLIDES := [
 	{
-		"title": "WELCOME TO BIRDIE BLITZ",
+		"title": "WELCOME TO GREENSIDE",
 		"intro": "A quick-swing golf game on endless, procedurally-built holes.",
 		"points": [
 			{"body": "Every hole is generated fresh, across five scenery biomes\nfrom parkland to alpine."},
